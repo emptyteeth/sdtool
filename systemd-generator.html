@@ -22,13 +22,15 @@
   --warn-soft:#fdf2df;
   --err:#ad2820;
   --err-soft:#fdecea;
-  --code-bg:#0e141b;
-  --code-fg:#dbe3ec;
-  --code-key:#79cfd6;
-  --code-sec:#eda65e;
-  --code-cm:#6d7b8c;
-  --code-gutter:#3d4855;
+  --code-bg:#f2f5f8;
+  --code-fg:#1c2530;
+  --code-key:#0b6570;
+  --code-sec:#8a4a08;
+  --code-cm:#596573;
+  --code-gutter:#9aa5b3;
   --shadow:0 1px 2px rgba(16,24,40,.05),0 10px 28px -16px rgba(16,24,40,.22);
+  /* 错误/建议标签上的文字:浅色下标签底色深,用白字 */
+  --tag-fg:#ffffff;
   --font-display:"Archivo","IBM Plex Sans",system-ui,sans-serif;
   --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -53,13 +55,15 @@
     --warn-soft:#33280f;
     --err:#f08a80;
     --err-soft:#3a1c19;
-    --code-bg:#080c11;
+    --code-bg:#0c1116;
     --code-fg:#dbe3ec;
     --code-key:#7fd8de;
     --code-sec:#f0ab63;
-    --code-cm:#6f7d8d;
-    --code-gutter:#38424e;
+    --code-cm:#8b96a4;
+    --code-gutter:#4a5563;
     --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px -18px rgba(0,0,0,.8);
+    /* 深色下标签底色亮,改用深字 */
+    --tag-fg:#0c1116;
   }
 }
 :root[data-theme="dark"]{
@@ -81,13 +85,15 @@
   --warn-soft:#33280f;
   --err:#f08a80;
   --err-soft:#3a1c19;
-  --code-bg:#080c11;
+  --code-bg:#0c1116;
   --code-fg:#dbe3ec;
   --code-key:#7fd8de;
   --code-sec:#f0ab63;
-  --code-cm:#6f7d8d;
-  --code-gutter:#38424e;
+  --code-cm:#8b96a4;
+  --code-gutter:#4a5563;
   --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px -18px rgba(0,0,0,.8);
+  /* 深色下标签底色亮,改用深字 */
+  --tag-fg:#0c1116;
 }
 
 *{box-sizing:border-box}
@@ -308,19 +314,13 @@ select{appearance:none;padding-right:30px;cursor:pointer}
   height:fit-content;margin-top:1px;
 }
 .note[data-l="err"]{background:var(--err-soft);color:var(--fg)}
-.note[data-l="err"] .tag{background:var(--err);color:var(--surface)}
+.note[data-l="err"] .tag{background:var(--err);color:var(--tag-fg)}
 .note[data-l="warn"]{background:var(--warn-soft);color:var(--fg)}
-.note[data-l="warn"] .tag{background:var(--warn);color:var(--surface)}
+.note[data-l="warn"] .tag{background:var(--warn);color:var(--tag-fg)}
 .note[data-l="note"] .tag{background:var(--surface-2);color:var(--fg-2);border:1px solid var(--border)}
 .note b{font-family:var(--font-mono);font-size:12px;font-weight:500}
 .note[data-l="err"] b{color:var(--err)}
 .note[data-l="warn"] b{color:var(--warn)}
-:root[data-theme="dark"] .note[data-l="err"] .tag,
-:root[data-theme="dark"] .note[data-l="warn"] .tag{color:var(--code-bg)}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .note[data-l="err"] .tag,
-  :root:not([data-theme="light"]) .note[data-l="warn"] .tag{color:var(--code-bg)}
-}
 
 #backdrop{
   position:fixed;inset:0;background:rgba(8,12,16,.5);z-index:30;
