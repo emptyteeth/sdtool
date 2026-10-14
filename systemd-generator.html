@@ -151,6 +151,11 @@ h1{font-size:clamp(23px,3.4vw,31px);font-weight:700;letter-spacing:-.018em;line-
   background:var(--surface);color:var(--fg);
   box-shadow:0 1px 2px rgba(16,24,40,.14);
 }
+.seg>button svg{width:14px;height:14px;flex:none}
+.seg .seg-label{
+  font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--fg-3);padding-inline:5px 3px;font-family:var(--font-body);
+}
 
 .layout{
   max-width:1500px;margin:0 auto;
@@ -351,6 +356,14 @@ footer code{font-family:var(--font-mono);font-size:12px;color:var(--fg-2)}
   *{transition:none!important;animation:none!important}
 }
 </style>
+<script>
+/* 主题偏好必须在首次绘制前生效,否则深色模式下会闪一下白底 */
+try{
+  var __t = localStorage.getItem("sdtool.theme.v1");
+  if(__t === "dark" || __t === "light") document.documentElement.setAttribute("data-theme", __t);
+}catch(e){}
+</script>
+
 <header class="page-head">
   <div class="brand">
     <span class="eyebrow">/etc/systemd/system</span>
@@ -358,6 +371,20 @@ footer code{font-family:var(--font-mono);font-size:12px;color:var(--fg-2)}
     <p class="sub" id="i18n-sub">按 <code>[Unit]</code> / <code>[Service]</code> / <code>[Install]</code> 分段填写，右侧实时生成 unit 文件，附带语法检查提示与部署命令。</p>
   </div>
   <div class="head-actions">
+    <div class="seg" id="seg-theme" role="group" aria-label="主题">
+      <button type="button" data-theme-set="auto" aria-pressed="true" title="跟随系统">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 21a9 9 0 0 0 0-18" fill="currentColor" stroke="none"/></svg>
+        <span data-i18n="theme.auto">自动</span>
+      </button>
+      <button type="button" data-theme-set="light" aria-pressed="false" title="浅色">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <span data-i18n="theme.light">浅色</span>
+      </button>
+      <button type="button" data-theme-set="dark" aria-pressed="false" title="深色">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <span data-i18n="theme.dark">深色</span>
+      </button>
+    </div>
     <div class="seg" id="seg-lang" role="group" aria-label="语言 / Language">
       <button type="button" data-lang-set="zh" aria-pressed="true">中文</button>
       <button type="button" data-lang-set="en" aria-pressed="false">EN</button>
@@ -428,6 +455,10 @@ var STR = {
     "copy.manual":"请手动复制",
     "sheet.show":"展开",
     "sheet.hide":"收起",
+    "theme.auto":"自动",
+    "theme.light":"浅色",
+    "theme.dark":"深色",
+    "theme.group":"主题",
     "lang.group":"语言 / Language",
     "status.ok":"就绪 · 语法检查无异常",
     "status.warn":"可以生成 · {0} 条建议",
@@ -483,6 +514,10 @@ var STR = {
     "copy.manual":"Select and copy",
     "sheet.show":"Show",
     "sheet.hide":"Hide",
+    "theme.auto":"Auto",
+    "theme.light":"Light",
+    "theme.dark":"Dark",
+    "theme.group":"Theme",
     "lang.group":"Language / 语言",
     "status.ok":"Ready · no issues found",
     "status.warn":"Usable · {0} suggestion(s)",
@@ -530,6 +565,7 @@ var STR = {
 };
 
 var LANG_KEY = "sdtool.lang.v1";
+var THEME_KEY = "sdtool.theme.v1";
 var DRAFT_KEY = "sdtool.draft.v1";
 var lang = "zh";
 
@@ -931,9 +967,14 @@ function buildChrome(){
   el("copy-label").textContent = t("copy.idle");
   el("sheet-label").textContent = (el("output").dataset.open === "true") ? t("sheet.hide") : t("sheet.show");
   el("output").setAttribute("aria-label", t("out.label"));
+  el("seg-theme").setAttribute("aria-label", t("theme.group"));
   el("seg-lang").setAttribute("aria-label", t("lang.group"));
   Array.prototype.forEach.call(document.querySelectorAll("[data-i18n]"), function(node){
     node.textContent = t(node.dataset.i18n);
+  });
+  var titles = {auto:t("theme.auto"), light:t("theme.light"), dark:t("theme.dark")};
+  Array.prototype.forEach.call(el("seg-theme").children, function(b){
+    b.title = titles[b.dataset.themeSet];
   });
 }
 
@@ -1291,6 +1332,16 @@ function writePref(key, val){
   try{ localStorage.setItem(key, val); }catch(e){}
 }
 
+/* ============ 主题 ============ */
+function applyTheme(mode, persist){
+  if(mode === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", mode);
+  if(persist) writePref(THEME_KEY, mode);
+  Array.prototype.forEach.call(el("seg-theme").children, function(b){
+    b.setAttribute("aria-pressed", b.dataset.themeSet === mode ? "true" : "false");
+  });
+}
+
 /* ============ 语言 ============ */
 function detectLang(){
   var saved = readPref(LANG_KEY);
@@ -1387,6 +1438,10 @@ function bind(){
     writeState(DEFAULTS);
   });
 
+  el("seg-theme").addEventListener("click", function(ev){
+    var btn = ev.target.closest("[data-theme-set]");
+    if(btn) applyTheme(btn.dataset.themeSet, true);
+  });
   el("seg-lang").addEventListener("click", function(ev){
     var btn = ev.target.closest("[data-lang-set]");
     if(btn){ applyLang(btn.dataset.langSet); updateLangButtons(); }
@@ -1410,6 +1465,7 @@ function bind(){
 
 /* ============ 启动 ============ */
 lang = detectLang();
+applyTheme(readPref(THEME_KEY) === "dark" || readPref(THEME_KEY) === "light" ? readPref(THEME_KEY) : "auto", false);
 buildChrome();
 updateLangButtons();
 buildForm();
