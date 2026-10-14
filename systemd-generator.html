@@ -1,0 +1,1109 @@
+<title>systemd 服务文件生成器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+:root{
+  /* 版式:左侧分组表单 / 右侧常驻 unit 文件面板;桌面双栏,手机收成底部抽屉 */
+  --bg:#f6f7f9;
+  --surface:#ffffff;
+  --surface-2:#eef1f5;
+  --fg:#151a21;
+  --fg-2:#4d5866;
+  --fg-3:#767f8d;
+  --border:#dce1e9;
+  --border-2:#c2cad6;
+  --accent:#0e6f78;
+  --accent-fg:#ffffff;
+  --accent-soft:#dff0f1;
+  --ok:#1c7a4c;
+  --ok-soft:#e6f4ec;
+  --warn:#8a5604;
+  --warn-soft:#fdf2df;
+  --err:#ad2820;
+  --err-soft:#fdecea;
+  --code-bg:#0e141b;
+  --code-fg:#dbe3ec;
+  --code-key:#79cfd6;
+  --code-sec:#eda65e;
+  --code-cm:#6d7b8c;
+  --code-gutter:#3d4855;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 10px 28px -16px rgba(16,24,40,.22);
+  --font-display:"Archivo","IBM Plex Sans",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d1218;
+    --surface:#141b23;
+    --surface-2:#1b242e;
+    --fg:#e7edf4;
+    --fg-2:#a3aebd;
+    --fg-3:#8b96a4;
+    --border:#25303c;
+    --border-2:#35424f;
+    --accent:#5fd0c8;
+    --accent-fg:#062b2c;
+    --accent-soft:#153230;
+    --ok:#5cc98d;
+    --ok-soft:#13301f;
+    --warn:#e0ab5a;
+    --warn-soft:#33280f;
+    --err:#f08a80;
+    --err-soft:#3a1c19;
+    --code-bg:#080c11;
+    --code-fg:#dbe3ec;
+    --code-key:#7fd8de;
+    --code-sec:#f0ab63;
+    --code-cm:#6f7d8d;
+    --code-gutter:#38424e;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px -18px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d1218;
+  --surface:#141b23;
+  --surface-2:#1b242e;
+  --fg:#e7edf4;
+  --fg-2:#a3aebd;
+  --fg-3:#8b96a4;
+  --border:#25303c;
+  --border-2:#35424f;
+  --accent:#5fd0c8;
+  --accent-fg:#062b2c;
+  --accent-soft:#153230;
+  --ok:#5cc98d;
+  --ok-soft:#13301f;
+  --warn:#e0ab5a;
+  --warn-soft:#33280f;
+  --err:#f08a80;
+  --err-soft:#3a1c19;
+  --code-bg:#080c11;
+  --code-fg:#dbe3ec;
+  --code-key:#7fd8de;
+  --code-sec:#f0ab63;
+  --code-cm:#6f7d8d;
+  --code-gutter:#38424e;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px -18px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg);
+  color:var(--fg);
+  font-family:var(--font-body);
+  font-size:14.5px;
+  line-height:1.55;
+  padding-inline:18px;
+  padding-block:0 40px;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+
+.page-head{
+  max-width:1500px;margin:0 auto;
+  padding-block:30px 22px;
+  display:flex;flex-wrap:wrap;gap:16px 22px;align-items:flex-end;justify-content:space-between;
+}
+.brand{display:flex;flex-direction:column;gap:7px;min-width:0}
+.eyebrow{
+  font-family:var(--font-mono);font-size:11px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+}
+h1{font-size:clamp(23px,3.4vw,31px);font-weight:700;letter-spacing:-.018em;line-height:1.12}
+.sub{color:var(--fg-2);max-width:60ch;font-size:14px}
+.head-actions{display:flex;gap:9px;flex-wrap:wrap}
+
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 14px;border-radius:8px;
+  border:1px solid var(--border-2);background:var(--surface);color:var(--fg);
+  font-size:13px;font-weight:500;white-space:nowrap;
+  transition:background-color .14s,border-color .14s,color .14s;
+}
+.btn:hover{background:var(--surface-2);border-color:var(--fg-3)}
+.btn svg{width:14px;height:14px;flex:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.primary:hover{background:var(--accent);filter:brightness(1.08)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--fg-2);padding-inline:10px}
+.btn.ghost:hover{background:var(--surface-2);color:var(--fg)}
+.btn.small{padding:5px 10px;font-size:12px;border-radius:7px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.layout{
+  max-width:1500px;margin:0 auto;
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.02fr);
+  gap:26px;align-items:start;
+}
+@media (max-width:940px){ .layout{grid-template-columns:minmax(0,1fr)} }
+
+/* ---------- 表单 ---------- */
+form{display:flex;flex-direction:column;gap:13px;min-width:0}
+.group{
+  background:var(--surface);border:1px solid var(--border);border-radius:11px;
+  overflow:hidden;
+}
+.group>summary{
+  list-style:none;cursor:pointer;padding:13px 16px;
+  display:flex;align-items:center;gap:11px;
+  font-family:var(--font-display);font-weight:600;font-size:14.5px;
+  letter-spacing:-.008em;
+}
+.group>summary::-webkit-details-marker{display:none}
+.group>summary:hover{background:var(--surface-2)}
+.group[open]>summary{border-bottom:1px solid var(--border)}
+.chev{
+  width:15px;height:15px;flex:none;color:var(--fg-3);
+  transition:transform .18s ease;
+}
+.group[open] .chev{transform:rotate(90deg)}
+.g-tag{
+  font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--fg-3);
+  letter-spacing:.02em;
+}
+.g-count{
+  margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:500;
+  color:var(--fg-3);background:var(--surface-2);border:1px solid var(--border);
+  padding:2px 7px;border-radius:999px;
+}
+.g-count[data-on="1"]{color:var(--accent);background:var(--accent-soft);border-color:transparent}
+.group-body{padding:16px}
+.g-desc{color:var(--fg-2);font-size:13px;margin:0 0 14px}
+
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+@media (max-width:600px){ .fields{grid-template-columns:minmax(0,1fr)} }
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field.wide{grid-column:1/-1}
+.field>label{
+  font-family:var(--font-mono);font-size:12.5px;font-weight:500;
+  color:var(--fg);letter-spacing:-.01em;
+}
+.field>label .zh{
+  font-family:var(--font-body);font-weight:400;color:var(--fg-3);
+  font-size:12px;margin-left:6px;letter-spacing:0;
+}
+.hint{font-size:12px;color:var(--fg-3);line-height:1.45}
+.hint code{font-family:var(--font-mono);font-size:11.5px}
+
+input[type=text],textarea,select{
+  width:100%;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;font-family:var(--font-mono);font-size:13px;
+  transition:border-color .14s,background-color .14s;
+}
+input[type=text]::placeholder,textarea::placeholder{color:var(--fg-3);opacity:.72}
+input[type=text]:hover,textarea:hover,select:hover{border-color:var(--border-2)}
+input[type=text]:focus,textarea:focus,select:focus{
+  outline:none;border-color:var(--accent);background:var(--surface);
+  box-shadow:0 0 0 3px var(--accent-soft);
+}
+textarea{resize:vertical;min-height:76px;line-height:1.6}
+.select-wrap{position:relative}
+.select-wrap svg{
+  position:absolute;right:9px;top:50%;transform:translateY(-50%);
+  width:13px;height:13px;color:var(--fg-3);pointer-events:none;
+}
+select{appearance:none;padding-right:30px;cursor:pointer}
+
+.check{display:flex;align-items:flex-start;gap:9px;min-width:0}
+.check input[type=checkbox]{
+  accent-color:var(--accent);width:16px;height:16px;margin:2px 0 0;flex:none;
+  cursor:pointer;
+}
+.check .cl{display:flex;flex-direction:column;gap:3px;min-width:0}
+.check .cl b{
+  font-family:var(--font-mono);font-size:12.5px;font-weight:500;letter-spacing:-.01em;
+}
+.subhead{
+  grid-column:1/-1;display:flex;align-items:center;gap:10px;
+  margin-top:5px;font-size:11px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--fg-3);
+  font-family:var(--font-body);
+}
+.subhead::after{content:"";flex:1;height:1px;background:var(--border)}
+
+/* ---------- 输出面板 ---------- */
+.output{
+  background:var(--surface);border:1px solid var(--border);border-radius:11px;
+  box-shadow:var(--shadow);overflow:hidden;
+  display:flex;flex-direction:column;
+  position:sticky;top:18px;max-height:calc(100dvh - 36px);
+}
+.out-head{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:11px 13px;border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--fg-3)}
+.dot[data-s="ok"]{background:var(--ok)}
+.dot[data-s="warn"]{background:var(--warn)}
+.dot[data-s="err"]{background:var(--err)}
+.status{font-size:12.5px;color:var(--fg-2);font-weight:500}
+.tabs{display:flex;gap:3px;background:var(--surface-2);padding:3px;border-radius:8px}
+.tab{
+  border:none;background:transparent;border-radius:6px;padding:4px 11px;
+  font-size:12.5px;font-weight:500;color:var(--fg-2);
+}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(16,24,40,.1)}
+.out-head .spacer{margin-left:auto}
+.sheet-toggle{display:none}
+
+.code-wrap{background:var(--code-bg);overflow:auto;flex:1;min-height:0}
+.code{
+  margin:0;padding:14px 16px 18px;
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.68;
+  color:var(--code-fg);counter-reset:ln;
+  tab-size:2;
+}
+.code-line{display:grid;grid-template-columns:2.4em minmax(0,1fr);white-space:pre-wrap}
+.code-line::before{
+  counter-increment:ln;content:counter(ln);
+  text-align:right;padding-right:1.1em;
+  color:var(--code-gutter);user-select:none;
+}
+.code-text{overflow-wrap:break-word;min-width:0}
+.code-text:empty::before{content:"\200b"}
+.c-sec{color:var(--code-sec);font-weight:700}
+.c-key{color:var(--code-key)}
+.c-val{color:var(--code-fg)}
+.c-cm{color:var(--code-cm);font-style:italic}
+.c-eq{color:var(--code-gutter)}
+
+.notes{border-top:1px solid var(--border);background:var(--surface);max-height:31%;overflow:auto;flex:none}
+.note{
+  display:flex;gap:9px;padding:9px 14px;font-size:12.5px;line-height:1.5;
+  border-bottom:1px solid var(--border);color:var(--fg-2);
+}
+.note:last-child{border-bottom:none}
+.note .tag{
+  flex:none;font-family:var(--font-mono);font-size:10px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;
+  height:fit-content;margin-top:1px;
+}
+.note[data-l="err"]{background:var(--err-soft);color:var(--fg)}
+.note[data-l="err"] .tag{background:var(--err);color:var(--surface)}
+.note[data-l="warn"]{background:var(--warn-soft);color:var(--fg)}
+.note[data-l="warn"] .tag{background:var(--warn);color:var(--surface)}
+.note[data-l="note"] .tag{background:var(--surface-2);color:var(--fg-2);border:1px solid var(--border)}
+.note b{font-family:var(--font-mono);font-size:12px;font-weight:500}
+.note[data-l="err"] b{color:var(--err)}
+.note[data-l="warn"] b{color:var(--warn)}
+:root[data-theme="dark"] .note[data-l="err"] .tag,
+:root[data-theme="dark"] .note[data-l="warn"] .tag{color:var(--code-bg)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .note[data-l="err"] .tag,
+  :root:not([data-theme="light"]) .note[data-l="warn"] .tag{color:var(--code-bg)}
+}
+
+#backdrop{
+  position:fixed;inset:0;background:rgba(8,12,16,.5);z-index:30;
+  backdrop-filter:blur(1px);
+}
+
+/* ---------- 手机:输出收成底部抽屉 ---------- */
+@media (max-width:940px){
+  body{padding-block-end:88px}
+  .output{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    border-radius:14px 14px 0 0;border-bottom:none;border-left:none;border-right:none;
+    max-height:88dvh;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    box-shadow:0 -10px 34px -12px rgba(8,12,16,.42);
+  }
+  .out-head{border-radius:14px 14px 0 0}
+  .output[data-open="false"] .code-wrap,
+  .output[data-open="false"] .notes{display:none}
+  .sheet-toggle{display:inline-flex}
+  .out-head .tabs{order:3;width:100%}
+}
+@media (min-width:941px){ #backdrop{display:none} }
+
+footer{
+  max-width:1500px;margin:30px auto 0;padding-top:16px;
+  border-top:1px solid var(--border);color:var(--fg-3);font-size:12.5px;
+  display:flex;flex-wrap:wrap;gap:6px 18px;
+}
+footer code{font-family:var(--font-mono);font-size:12px;color:var(--fg-2)}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+
+<header class="page-head">
+  <div class="brand">
+    <span class="eyebrow">/etc/systemd/system</span>
+    <h1>systemd 服务文件生成器</h1>
+    <p class="sub">按 <code>[Unit]</code> / <code>[Service]</code> / <code>[Install]</code> 分段填写，右侧实时生成 unit 文件，附带语法检查提示与部署命令。</p>
+  </div>
+  <div class="head-actions">
+    <button class="btn" type="button" id="btn-reset">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      重置为示例
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <form id="form" autocomplete="off" novalidate></form>
+
+  <aside class="output" id="output" data-open="false" aria-label="生成结果">
+    <div class="out-head">
+      <span class="dot" id="status-dot" data-s="ok"></span>
+      <span class="status" id="status-text">就绪</span>
+      <button class="btn small ghost sheet-toggle" type="button" id="btn-sheet" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 15-6-6-6 6"/></svg>
+        <span id="sheet-label">展开</span>
+      </button>
+      <span class="spacer"></span>
+      <div class="tabs" role="tablist">
+        <button class="tab" type="button" role="tab" id="tab-unit" aria-selected="true">unit 文件</button>
+        <button class="tab" type="button" role="tab" id="tab-install" aria-selected="false">部署命令</button>
+      </div>
+      <button class="btn small" type="button" id="btn-copy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        <span id="copy-label">复制</span>
+      </button>
+    </div>
+
+    <div class="code-wrap" id="pane-unit">
+      <pre class="code" id="code-unit"></pre>
+    </div>
+    <div class="code-wrap" id="pane-install" hidden>
+      <pre class="code" id="code-install"></pre>
+    </div>
+
+    <div class="notes" id="notes"></div>
+  </aside>
+</div>
+
+<footer>
+  <span>生成的文件放到 <code>/etc/systemd/system/</code>，改完记得 <code>systemctl daemon-reload</code>。</span>
+  <span>填写内容只保存在这台浏览器本地。</span>
+</footer>
+
+<div id="backdrop" hidden></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============ 字段定义 ============
+   每个 group 对应一段 unit 文件；tag 显示该段名。 */
+var SCHEMA = [
+  {
+    id:"unit", title:"标识", tag:"[Unit]", open:true,
+    desc:"服务叫什么、做什么、文档在哪。",
+    fields:[
+      {k:"name", label:"服务名", zh:"(文件名)", type:"text", ph:"myapp", wide:true,
+       hint:'生成的文件名是 <code>myapp.service</code>，只允许字母、数字和 <code>._-@:</code>'},
+      {k:"Description", type:"text", ph:"My Application Service", wide:true,
+       hint:"一行说明，<code>systemctl status</code> 里显示的就是它"},
+      {k:"Documentation", type:"text", ph:"https://example.com/docs", wide:true,
+       hint:"文档或 man 页地址，多个用空格分隔"}
+    ]
+  },
+  {
+    id:"deps", title:"依赖与限制", tag:"[Unit]", open:false,
+    desc:"决定开机顺序、谁能拉起它，以及反复崩溃时的熔断阈值。",
+    fields:[
+      {k:"After", type:"text", ph:"network-online.target", hint:"在这些单元启动之后再启动本服务"},
+      {k:"Wants", type:"text", ph:"network-online.target", hint:"希望一起启动；对方失败不影响本服务"},
+      {k:"Requires", type:"text", ph:"", hint:"强依赖：对方失败，本服务也不会启动"},
+      {k:"Before", type:"text", ph:"", hint:"在这些单元之前启动本服务"},
+      {k:"PartOf", type:"text", ph:"", hint:"对方重启或停止时，本服务跟着一起"},
+      {k:"Conflicts", type:"text", ph:"", hint:"与这些单元互斥，不能同时运行"},
+      {k:"StartLimitIntervalSec", type:"text", ph:"10", hint:"熔断统计窗口（秒），与下一项配套使用"},
+      {k:"StartLimitBurst", type:"text", ph:"5", hint:"窗口内允许的启动次数，超过就进入 failed"}
+    ]
+  },
+  {
+    id:"process", title:"进程", tag:"[Service]", open:true,
+    desc:"怎么启动、用什么身份跑。",
+    fields:[
+      {k:"Type", label:"Type", type:"select", def:"simple",
+       opts:["simple","exec","forking","oneshot","notify","dbus","idle"],
+       hint:'<code>simple</code> 立刻算启动成功；<code>exec</code> 等主进程真正执行后才算（新服务推荐）'},
+      {k:"ExecStart", type:"text", ph:"/usr/local/bin/myapp --config /etc/myapp/config.toml", wide:true,
+       hint:"必须是绝对路径，参数跟在后面"},
+      {k:"ExecStartPre", type:"text", ph:"/usr/bin/mkdir -p /run/myapp", hint:"启动前执行的命令，可重复出现"},
+      {k:"ExecStartPost", type:"text", ph:"", hint:"启动成功后执行的命令"},
+      {k:"ExecReload", type:"text", ph:"/bin/kill -HUP $MAINPID", hint:'对应 <code>systemctl reload</code>'},
+      {k:"ExecStop", type:"text", ph:"", hint:"不填时 systemd 直接给主进程发 SIGTERM"},
+      {k:"ExecStopPost", type:"text", ph:"", hint:"无论停止成功与否都会执行，适合清理"},
+      {k:"WorkingDirectory", type:"text", ph:"/opt/myapp", hint:"进程的工作目录，必须已存在"},
+      {k:"User", type:"text", ph:"myapp", hint:"运行身份；留空则是 root"},
+      {k:"Group", type:"text", ph:"myapp", hint:"留空则用 User 的主组"},
+      {k:"DynamicUser", type:"check", wide:true,
+       hint:'<code>yes</code> 时 systemd 在启动时临时分配一个 UID/GID，服务停止后回收，不必预建系统用户。与 <code>User=</code> 互斥'},
+      {k:"SupplementaryGroups", type:"text", ph:"docker video", hint:"附加组，空格分隔"}
+    ]
+  },
+  {
+    id:"env", title:"运行环境与目录", tag:"[Service]", open:true,
+    desc:"环境变量，以及由 systemd 自动创建、自动授权、跨重启保留的目录。",
+    fields:[
+      {k:"Environment", type:"textarea", wide:true, ph:"APP_ENV=production\nPORT=8080\nDATABASE_URL=postgres://localhost:5432/app",
+       hint:"每行一个 <code>KEY=VALUE</code>，输出时每行生成一条 <code>Environment=</code>；含空格的值会自动加引号。以 <code>#</code> 开头的行原样保留为注释"},
+      {k:"EnvironmentFile", type:"textarea", wide:true, ph:"/etc/myapp/env",
+       hint:"从文件读取环境变量，每行一个路径；<code>-</code> 前缀表示文件不存在也不报错"},
+      {k:"StateDirectory", type:"text", ph:"myapp", hint:'持久状态目录，实际落在 <code>/var/lib/private/myapp</code>（DynamicUser 时）'},
+      {k:"CacheDirectory", type:"text", ph:"myapp", hint:"缓存目录 <code>/var/cache/myapp</code>，可安全清空"},
+      {k:"LogsDirectory", type:"text", ph:"myapp", hint:"日志目录 <code>/var/log/myapp</code>"},
+      {k:"ConfigurationDirectory", type:"text", ph:"myapp", hint:"配置目录 <code>/etc/myapp</code>，只读挂载"},
+      {k:"RuntimeDirectory", type:"text", ph:"myapp", hint:"运行时目录 <code>/run/myapp</code>，停止后自动删除"},
+      {k:"RuntimeDirectoryPreserve", type:"select", def:"", opts:["","no","yes","restart"],
+       hint:"<code>restart</code> = 重启时保留 /run 下的内容"}
+    ]
+  },
+  {
+    id:"lifecycle", title:"重启与超时", tag:"[Service]", open:true,
+    desc:"退出后怎么办，等多久，什么时候算卡死。",
+    fields:[
+      {k:"Restart", type:"select", def:"on-failure",
+       opts:["no","on-success","on-failure","on-abnormal","on-watchdog","on-abort","always"],
+       hint:'<code>on-failure</code> 覆盖非零退出、信号杀死和超时'},
+      {k:"RestartSec", type:"text", ph:"5", hint:"重启前等待秒数，不设默认只有 100ms"},
+      {k:"TimeoutStopSec", type:"text", ph:"20", hint:"停止超时，超时后 SIGKILL"},
+      {k:"WatchdogSec", type:"text", ph:"", hint:'需要服务主动调用 <code>sd_notify(WATCHDOG=1)</code>，配合 Type=notify'},
+      {k:"RemainAfterExit", type:"check", wide:true,
+       hint:"进程退出后仍算 active，适合 Type=oneshot 的一次性初始化任务"}
+    ]
+  },
+  {
+    id:"harden", title:"加固与资源", tag:"[Service]", open:false,
+    desc:"沙箱开关。默认全部关闭，改动前先确认服务真的不需要这些权限。",
+    actions:[
+      {id:"preset", label:"套用推荐加固"},
+      {id:"clear-harden", label:"全部关闭"}
+    ],
+    fields:[
+      {k:"_sub_sandbox", type:"sub", label:"沙箱"},
+      {k:"NoNewPrivileges", type:"check", hint:"禁止通过 setuid/setgid 提权，几乎所有服务都该开"},
+      {k:"PrivateTmp", type:"check", hint:"给服务独立的 /tmp 和 /var/tmp"},
+      {k:"PrivateDevices", type:"check", hint:"只暴露 /dev/null、/dev/zero 等基本设备"},
+      {k:"ProtectSystem", type:"select", def:"", opts:["","no","full","strict"],
+       hint:'<code>strict</code> 整个文件系统只读，写入路径需列入 ReadWritePaths'},
+      {k:"ProtectHome", type:"select", def:"", opts:["","no","yes","read-only","tmpfs"],
+       hint:"隐藏或只读化 /home、/root、/run/user"},
+      {k:"ProtectKernelTunables", type:"check", hint:"/proc/sys、/sys 只读"},
+      {k:"ProtectKernelModules", type:"check", hint:"禁止加载/卸载内核模块"},
+      {k:"ProtectKernelLogs", type:"check", hint:"禁止读取内核环形缓冲区"},
+      {k:"ProtectControlGroups", type:"check", hint:"cgroup 文件系统只读"},
+      {k:"ProtectClock", type:"check", hint:"禁止修改系统时钟"},
+      {k:"ProtectHostname", type:"check", hint:"禁止修改主机名和域名"},
+      {k:"RestrictAddressFamilies", type:"text", ph:"AF_INET AF_INET6 AF_UNIX",
+       hint:"只允许列出的 socket 地址族"},
+      {k:"RestrictNamespaces", type:"check", hint:"禁止创建新的命名空间"},
+      {k:"LockPersonality", type:"check", hint:"锁定执行域，阻止切换 personality"},
+      {k:"MemoryDenyWriteExecute", type:"check", hint:"禁止可写且可执行的内存页，JIT 类运行时（Node、JVM）会崩"},
+      {k:"RestrictRealtime", type:"check", hint:"禁止实时调度策略"},
+      {k:"RestrictSUIDSGID", type:"check", hint:"禁止创建 setuid/setgid 文件"},
+      {k:"RemoveIPC", type:"check", hint:"服务退出时清掉它占用的 System V / POSIX IPC"},
+      {k:"SystemCallFilter", type:"text", ph:"@system-service", hint:'<code>@system-service</code> 是常用白名单组'},
+      {k:"SystemCallArchitectures", type:"select", def:"", opts:["","native"],
+       hint:"只允许本机架构的系统调用"},
+      {k:"CapabilityBoundingSet", type:"text", ph:"CAP_NET_BIND_SERVICE", hint:"保留的能力集合，留空即全部保留"},
+      {k:"AmbientCapabilities", type:"text", ph:"CAP_NET_BIND_SERVICE",
+       hint:"把能力交给非 root 进程，让普通用户也能绑 80 端口"},
+      {k:"ReadWritePaths", type:"text", ph:"/var/www/uploads", hint:"在只读文件系统中额外开放可写的路径"},
+      {k:"ReadOnlyPaths", type:"text", ph:"", hint:"额外强制只读的路径"},
+      {k:"InaccessiblePaths", type:"text", ph:"", hint:"对服务完全不可见的路径"},
+
+      {k:"_sub_log", type:"sub", label:"日志"},
+      {k:"StandardOutput", type:"select", def:"", opts:["","journal","syslog","null","inherit"],
+       hint:"默认进 journal，也就是 <code>journalctl -u</code> 能看到"},
+      {k:"StandardError", type:"select", def:"", opts:["","inherit","journal","syslog","null"],
+       hint:'<code>inherit</code> 表示与 StandardOutput 一致'},
+      {k:"SyslogIdentifier", type:"text", ph:"myapp", hint:"日志条目前缀，默认取服务名"},
+
+      {k:"_sub_res", type:"sub", label:"资源限制"},
+      {k:"LimitNOFILE", type:"text", ph:"65536", hint:"文件描述符上限"},
+      {k:"MemoryMax", type:"text", ph:"512M", hint:"内存上限，超出即 OOM kill；可写 512M、2G、60%"},
+      {k:"CPUQuota", type:"text", ph:"50%", hint:"CPU 配额，50% 表示最多用半个核"},
+      {k:"Nice", type:"text", ph:"5", hint:"调度优先级，-20 最高、19 最低"},
+      {k:"OOMScoreAdjust", type:"text", ph:"", hint:"OOM 时被杀的可能性，-1000 到 1000"},
+      {k:"UMask", type:"text", ph:"0027", hint:"文件创建掩码，八进制"}
+    ]
+  },
+  {
+    id:"install", title:"安装", tag:"[Install]", open:true,
+    desc:"决定 systemctl enable 时挂到哪个 target 下。",
+    fields:[
+      {k:"WantedBy", type:"text", ph:"multi-user.target", wide:true, def:"multi-user.target",
+       hint:'普通服务用 <code>multi-user.target</code>，开机即启；用户级服务用 <code>default.target</code>'},
+      {k:"RequiredBy", type:"text", ph:"", hint:"被这些 target 强依赖，一般不用填"},
+      {k:"Also", type:"text", ph:"", hint:"enable 本服务时一并 enable 的其他单元，如 <code>myapp.socket</code>"},
+      {k:"Alias", type:"text", ph:"", hint:"给本单元起的别名，如 <code>db.service</code>"}
+    ]
+  }
+];
+
+/* ============ 默认示例：一个真实可用的服务 ============ */
+var DEFAULTS = {
+  name:"myapp",
+  Description:"My Application Service",
+  Documentation:"",
+  After:"network-online.target",
+  Wants:"network-online.target",
+  Requires:"", Before:"", PartOf:"", Conflicts:"",
+  StartLimitIntervalSec:"10", StartLimitBurst:"5",
+  Type:"simple",
+  ExecStart:"/usr/local/bin/myapp --config /etc/myapp/config.toml",
+  ExecStartPre:"", ExecStartPost:"", ExecReload:"", ExecStop:"", ExecStopPost:"",
+  WorkingDirectory:"/opt/myapp",
+  User:"", Group:"", DynamicUser:true, SupplementaryGroups:"",
+  Environment:"APP_ENV=production\nPORT=8080",
+  EnvironmentFile:"",
+  StateDirectory:"myapp", CacheDirectory:"", LogsDirectory:"",
+  ConfigurationDirectory:"", RuntimeDirectory:"", RuntimeDirectoryPreserve:"",
+  Restart:"on-failure", RestartSec:"5", TimeoutStopSec:"20", WatchdogSec:"",
+  RemainAfterExit:false,
+  NoNewPrivileges:false, PrivateTmp:false, PrivateDevices:false,
+  ProtectSystem:"", ProtectHome:"", ProtectKernelTunables:false,
+  ProtectKernelModules:false, ProtectKernelLogs:false, ProtectControlGroups:false,
+  ProtectClock:false, ProtectHostname:false, RestrictAddressFamilies:"",
+  RestrictNamespaces:false, LockPersonality:false, MemoryDenyWriteExecute:false,
+  RestrictRealtime:false, RestrictSUIDSGID:false, RemoveIPC:false,
+  SystemCallFilter:"", SystemCallArchitectures:"",
+  CapabilityBoundingSet:"", AmbientCapabilities:"",
+  ReadWritePaths:"", ReadOnlyPaths:"", InaccessiblePaths:"",
+  StandardOutput:"", StandardError:"", SyslogIdentifier:"",
+  LimitNOFILE:"", MemoryMax:"", CPUQuota:"", Nice:"", OOMScoreAdjust:"", UMask:"",
+  WantedBy:"multi-user.target", RequiredBy:"", Also:"", Alias:""
+};
+
+var HARDEN_PRESET = {
+  NoNewPrivileges:true, PrivateTmp:true, PrivateDevices:true,
+  ProtectSystem:"strict", ProtectHome:"read-only",
+  ProtectKernelTunables:true, ProtectKernelModules:true, ProtectKernelLogs:true,
+  ProtectControlGroups:true, ProtectClock:true, ProtectHostname:true,
+  RestrictAddressFamilies:"AF_INET AF_INET6 AF_UNIX",
+  RestrictNamespaces:true, LockPersonality:true, RestrictRealtime:true,
+  RestrictSUIDSGID:true, RemoveIPC:true,
+  SystemCallFilter:"@system-service", SystemCallArchitectures:"native"
+};
+var HARDEN_KEYS = Object.keys(HARDEN_PRESET);
+
+/* ============ 展平字段表 ============ */
+var FIELDS = [];
+SCHEMA.forEach(function(g){
+  g.fields.forEach(function(f){
+    if(f.type === "sub") return;
+    f.group = g.id;
+    if(f.label === undefined) f.label = f.k;
+    FIELDS.push(f);
+  });
+});
+var FIELD_BY_KEY = {};
+FIELDS.forEach(function(f){ FIELD_BY_KEY[f.k] = f; });
+
+/* ============ 构建表单 ============ */
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+                  .replace(/"/g,"&quot;");
+}
+function el(id){ return document.getElementById(id); }
+
+var CHEVRON = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+var CARET   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+
+function fieldHTML(f){
+  var id = "f-" + f.k;
+  var wide = f.wide ? " wide" : "";
+  if(f.type === "sub"){
+    return '<div class="subhead">' + esc(f.label) + "</div>";
+  }
+  if(f.type === "check"){
+    return '<div class="field'+wide+'"><label class="check" for="'+id+'">' +
+      '<input type="checkbox" id="'+id+'" name="'+esc(f.k)+'">' +
+      '<span class="cl"><b>'+esc(f.label)+'</b>' +
+      (f.hint ? '<span class="hint">'+f.hint+'</span>' : "") +
+      '</span></label></div>';
+  }
+  var label = '<label for="'+id+'">'+esc(f.label)+
+    (f.zh ? '<span class="zh">'+esc(f.zh)+'</span>' : "")+'</label>';
+  var ctrl;
+  if(f.type === "select"){
+    ctrl = '<div class="select-wrap"><select id="'+id+'" name="'+esc(f.k)+'">' +
+      f.opts.map(function(o){
+        return '<option value="'+esc(o)+'">'+esc(o === "" ? "不设置" : o)+'</option>';
+      }).join("") + '</select>' + CARET + '</div>';
+  } else if(f.type === "textarea"){
+    ctrl = '<textarea id="'+id+'" name="'+esc(f.k)+'" rows="4" spellcheck="false" placeholder="'+esc(f.ph||"")+'"></textarea>';
+  } else {
+    ctrl = '<input type="text" id="'+id+'" name="'+esc(f.k)+'" spellcheck="false" placeholder="'+esc(f.ph||"")+'">';
+  }
+  return '<div class="field'+wide+'">'+label+ctrl+
+    (f.hint ? '<span class="hint">'+f.hint+'</span>' : "")+'</div>';
+}
+
+function buildForm(){
+  el("form").innerHTML = SCHEMA.map(function(g){
+    var body = (g.desc ? '<p class="g-desc">'+g.desc+'</p>' : "") +
+      '<div class="fields">' + g.fields.map(fieldHTML).join("") + '</div>';
+    var actions = (g.actions || []).map(function(a){
+      return '<button class="btn small" type="button" data-action="'+a.id+'">'+esc(a.label)+'</button>';
+    }).join("");
+    if(actions) body = '<div class="head-actions" style="margin-bottom:14px">'+actions+'</div>' + body;
+    return '<details class="group" id="g-'+g.id+'"'+(g.open?" open":"")+'>' +
+      '<summary>'+CHEVRON+'<span>'+esc(g.title)+'</span>' +
+      '<span class="g-tag">'+esc(g.tag)+'</span>' +
+      '<span class="g-count" id="c-'+g.id+'">0</span>' +
+      '</summary><div class="group-body">'+body+'</div></details>';
+  }).join("");
+}
+
+/* ============ 读写表单值 ============ */
+function readState(){
+  var v = {};
+  FIELDS.forEach(function(f){
+    var node = el("f-"+f.k);
+    if(!node) return;
+    v[f.k] = (f.type === "check") ? node.checked : node.value;
+  });
+  return v;
+}
+function writeState(v, silent){
+  FIELDS.forEach(function(f){
+    var node = el("f-"+f.k);
+    if(!node) return;
+    var val = (v[f.k] !== undefined) ? v[f.k] : (DEFAULTS[f.k] !== undefined ? DEFAULTS[f.k] : (f.type==="check"?false:""));
+    if(f.type === "check") node.checked = !!val;
+    else node.value = val;
+  });
+  if(!silent) render();
+}
+
+/* ============ 小工具 ============ */
+function listVal(s){
+  return String(s || "").trim().split(/[\s,]+/).filter(Boolean).join(" ");
+}
+function quoteEnv(s){
+  if(!/[\s"'\\]/.test(s)) return s;
+  return '"' + s.replace(/\\/g,"\\\\").replace(/"/g,'\\"') + '"';
+}
+function parseEnv(text){
+  var out = [];
+  String(text || "").split("\n").forEach(function(raw){
+    var line = raw.trim();
+    if(!line) return;
+    if(line.charAt(0) === "#"){ out.push({comment:line}); return; }
+    var i = line.indexOf("=");
+    if(i < 1){ out.push({bad:line}); return; }
+    out.push({key:line.slice(0,i).trim(), value:line.slice(i+1).trim()});
+  });
+  return out;
+}
+function parsePaths(text){
+  return String(text || "").split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
+}
+function safeName(raw){
+  var n = String(raw || "").trim().replace(/[^A-Za-z0-9:_.@\-]/g, "-").replace(/^[-.]+/, "");
+  return n || "myapp";
+}
+/* 目录指令只接受「目录名」；填了绝对路径或含非法字符的值不写进输出 */
+function dirVal(v, k){
+  var parts = String(v[k] || "").trim().split(/\s+/).filter(function(n){
+    return n && /^[A-Za-z0-9._-]+$/.test(n);
+  });
+  return parts.join(" ");
+}
+
+/* ============ 生成 unit 文件 ============ */
+function buildLines(v){
+  var L = [];
+  var d  = function(k, val){ L.push({t:"d", k:k, v:String(val)}); };
+  var s  = function(x){ L.push({t:"s", k:x}); };
+  var b  = function(){ L.push({t:"b"}); };
+  var cm = function(x){ L.push({t:"c", k:x}); };
+  var set = function(k){ var x = listVal(v[k]); if(x) d(k, x); };
+
+  var name = safeName(v.name);
+  cm("/etc/systemd/system/" + name + ".service");
+  b();
+  s("[Unit]");
+  if(v.Description) d("Description", v.Description);
+  if(v.Documentation) d("Documentation", listVal(v.Documentation));
+  ["Requires","Wants","After","Before","PartOf","Conflicts"].forEach(set);
+  set("StartLimitIntervalSec"); set("StartLimitBurst");
+
+  b();
+  s("[Service]");
+  d("Type", v.Type || "simple");
+  set("ExecStartPre"); set("ExecStart"); set("ExecStartPost");
+  set("ExecReload"); set("ExecStop"); set("ExecStopPost");
+  if(v.RemainAfterExit) d("RemainAfterExit","yes");
+  if(v.Restart && v.Restart !== "no") d("Restart", v.Restart);
+  set("RestartSec"); set("TimeoutStopSec"); set("WatchdogSec");
+  set("WorkingDirectory");
+  if(v.DynamicUser){
+    d("DynamicUser","yes");
+    if(v.Group) d("Group", v.Group);
+  } else {
+    set("User"); set("Group");
+  }
+  set("SupplementaryGroups");
+
+  parseEnv(v.Environment).forEach(function(e){
+    if(e.comment) cm(e.comment);
+    else if(e.bad) cm("# 无法解析: " + e.bad);
+    else d("Environment", quoteEnv(e.key + "=" + e.value));
+  });
+  parsePaths(v.EnvironmentFile).forEach(function(p){ d("EnvironmentFile", p); });
+
+  ["StateDirectory","CacheDirectory","LogsDirectory","ConfigurationDirectory","RuntimeDirectory"].forEach(function(k){
+    var val = dirVal(v, k);
+    if(val) d(k, val);
+  });
+  set("RuntimeDirectoryPreserve");
+
+  ["NoNewPrivileges","PrivateTmp","PrivateDevices","ProtectSystem","ProtectHome",
+   "ProtectKernelTunables","ProtectKernelModules","ProtectKernelLogs","ProtectControlGroups",
+   "ProtectClock","ProtectHostname","RestrictAddressFamilies","RestrictNamespaces",
+   "LockPersonality","MemoryDenyWriteExecute","RestrictRealtime","RestrictSUIDSGID","RemoveIPC",
+   "SystemCallFilter","SystemCallArchitectures","CapabilityBoundingSet","AmbientCapabilities",
+   "ReadWritePaths","ReadOnlyPaths","InaccessiblePaths",
+   "StandardOutput","StandardError","SyslogIdentifier",
+   "LimitNOFILE","MemoryMax","CPUQuota","Nice","OOMScoreAdjust","UMask"
+  ].forEach(function(k){
+    var f = FIELD_BY_KEY[k];
+    if(!f) return;
+    if(f.type === "check"){ if(v[k]) d(k, "yes"); }
+    else set(k);
+  });
+
+  b();
+  s("[Install]");
+  set("WantedBy"); set("RequiredBy"); set("Also"); set("Alias");
+  if(!listVal(v.WantedBy)) cm("# 未设置 WantedBy，systemctl enable 会失败");
+
+  while(L.length && L[L.length-1].t === "b") L.pop();
+  return L;
+}
+
+function linesToText(L){
+  return L.map(function(l){
+    if(l.t === "s") return l.k;
+    if(l.t === "c") return l.k;
+    if(l.t === "b") return "";
+    return l.k + "=" + l.v;
+  }).join("\n") + "\n";
+}
+
+function linesToHTML(L){
+  return L.map(function(l){
+    var inner;
+    if(l.t === "s") inner = '<span class="c-sec">'+esc(l.k)+'</span>';
+    else if(l.t === "c") inner = '<span class="c-cm">'+esc(l.k)+'</span>';
+    else if(l.t === "b") inner = "";
+    else inner = '<span class="c-key">'+esc(l.k)+'</span><span class="c-eq">=</span><span class="c-val">'+esc(l.v)+'</span>';
+    return '<span class="code-line"><span class="code-text">'+inner+'</span></span>';
+  }).join("\n");
+}
+
+function installText(name, unitText){
+  return [
+    "# 1. 写入 unit 文件",
+    "sudo tee /etc/systemd/system/" + name + ".service >/dev/null <<'EOF'",
+    unitText.replace(/\n$/, ""),
+    "EOF",
+    "",
+    "# 2. 校验语法（会报出未知指令、路径错误等问题）",
+    "sudo systemd-analyze verify /etc/systemd/system/" + name + ".service",
+    "",
+    "# 3. 重新加载配置并设为开机自启，立即启动",
+    "sudo systemctl daemon-reload",
+    "sudo systemctl enable --now " + name + ".service",
+    "",
+    "# 4. 查看状态与日志",
+    "systemctl status " + name + ".service",
+    "journalctl -u " + name + ".service -f",
+    "",
+    "# 改完 unit 文件后只需要：",
+    "sudo systemctl daemon-reload && sudo systemctl restart " + name + ".service"
+  ].join("\n") + "\n";
+}
+
+function installHTML(text){
+  return text.split("\n").map(function(line){
+    var t = line.trim();
+    var inner = (t.charAt(0) === "#")
+      ? '<span class="c-cm">'+esc(line)+'</span>'
+      : esc(line);
+    return '<span class="code-line"><span class="code-text">'+inner+'</span></span>';
+  }).join("\n");
+}
+
+/* ============ 校验 ============ */
+var DIR_KEYS = ["StateDirectory","CacheDirectory","LogsDirectory","ConfigurationDirectory","RuntimeDirectory"];
+
+function validate(v){
+  var out = [];
+  var err  = function(k, msg){ out.push({l:"err",  k:k, msg:msg}); };
+  var warn = function(k, msg){ out.push({l:"warn", k:k, msg:msg}); };
+  var note = function(k, msg){ out.push({l:"note", k:k, msg:msg}); };
+
+  var name = String(v.name || "").trim();
+  if(!name) err("服务名", "不能为空，生成的文件需要它来命名。");
+  else if(!/^[A-Za-z0-9:_.@\\-]+$/.test(name))
+    err("服务名", "含有非法字符，只能用字母、数字和 <code>._-@:</code>。");
+  else if(!/\.(service|socket|timer|target|mount|path)$/.test(name))
+    note("服务名", "生成的文件名会是 <code>"+esc(name)+".service</code>。");
+
+  if(!String(v.ExecStart || "").trim()) err("ExecStart", "必填，否则服务无法启动。");
+  else if(v.ExecStart.trim().charAt(0) !== "/")
+    err("ExecStart", "必须是绝对路径，当前值不是以 <code>/</code> 开头。");
+
+  if(String(v.ExecStart||"").indexOf("$MAINPID") >= 0)
+    warn("ExecStart", "<code>$MAINPID</code> 只在 <code>ExecStop</code>、<code>ExecReload</code> 等指令里有意义。");
+
+  if(v.DynamicUser && String(v.User||"").trim())
+    warn("DynamicUser", "<code>DynamicUser=yes</code> 时 <code>User=</code> 会被忽略，已从输出中省略。要固定身份请关掉 DynamicUser。");
+
+  if(v.DynamicUser && String(v.Group||"").trim())
+    note("DynamicUser", "<code>Group=</code> 仍会生效，它会成为动态用户的附加组。");
+
+  DIR_KEYS.forEach(function(k){
+    var raw = String(v[k] || "").trim();
+    if(!raw) return;
+    if(raw.charAt(0) === "/")
+      err(k, "只填目录名，不要写绝对路径。systemd 会自己决定位置，写 <code>"+esc(raw.split("/").pop()||"")+"</code> 就够了。");
+    else {
+      var bad = raw.split(/\s+/).filter(function(n){ return !/^[A-Za-z0-9._-]+$/.test(n); });
+      if(bad.length) err(k, "目录名 <code>"+esc(bad[0])+"</code> 含非法字符，只能是字母、数字、<code>.</code>、<code>_</code>、<code>-</code>。");
+    }
+  });
+
+  if(v.DynamicUser && !String(v.StateDirectory||"").trim() &&
+     (String(v.CacheDirectory||"").trim() || String(v.LogsDirectory||"").trim()))
+    note("DynamicUser", "动态用户的 UID 每次启动都可能变，只有 <code>StateDirectory</code> 等目录会被自动 chown。服务自己写的数据建议放进这些目录。");
+
+  if(v.DynamicUser && String(v.WorkingDirectory||"").trim() &&
+     DIR_KEYS.every(function(k){ return !String(v[k]||"").trim(); }))
+    warn("DynamicUser", "<code>WorkingDirectory</code> 指向的目录需要有读权限；动态用户没有家目录，确认该路径对所有人可读。");
+
+  if(v.Restart && v.Restart !== "no" && !String(v.RestartSec||"").trim())
+    warn("RestartSec", "没设重启间隔时默认只有 100ms，崩溃循环会瞬间刷满日志。建议填 5。");
+
+  if(v.Type === "oneshot" && v.Restart && v.Restart !== "no" && v.Restart !== "on-failure")
+    warn("Type", "<code>oneshot</code> 配 <code>Restart="+esc(v.Restart)+"</code> 通常不是想要的效果，一次性任务用 <code>on-failure</code> 或不重启。");
+
+  if(v.Type === "oneshot" && !v.RemainAfterExit)
+    note("Type", "<code>oneshot</code> 且未开 <code>RemainAfterExit</code> 时，进程退出后状态就是 inactive，依赖它的单元会认为服务已停。");
+
+  if(v.Type === "forking" && !String(v.ExecStop||"").trim())
+    note("Type", "<code>forking</code> 服务建议显式写 <code>ExecStop</code>，否则 systemd 只能靠 PIDFile 猜怎么停。");
+
+  if(v.WatchdogSec && v.Type !== "notify" && v.Type !== "notify-reload")
+    warn("WatchdogSec", "看门狗要求服务主动上报心跳，通常需要 <code>Type=notify</code>，当前是 <code>"+esc(v.Type)+"</code>。");
+
+  if(!listVal(v.WantedBy))
+    warn("WantedBy", "留空的话 <code>systemctl enable</code> 会报错，普通服务填 <code>multi-user.target</code>。");
+
+  parseEnv(v.Environment).forEach(function(e){
+    if(e.bad) err("Environment", "这行不是 <code>KEY=VALUE</code>：<code>"+esc(e.bad)+"</code>");
+  });
+
+  var strict = v.ProtectSystem === "strict";
+  if(strict && !String(v.ReadWritePaths||"").trim())
+    note("ProtectSystem", "<code>strict</code> 下整个文件系统只读。StateDirectory 等目录会自动可写，其他要写入的路径请填进 <code>ReadWritePaths</code>。");
+  if(strict && !String(v.WorkingDirectory||"").trim() && !v.DynamicUser)
+    note("ProtectSystem", "<code>strict</code> 下未设 <code>WorkingDirectory</code>，服务会以 <code>/</code> 为工作目录且不可写。");
+
+  if(v.MemoryDenyWriteExecute)
+    warn("MemoryDenyWriteExecute", "会杀掉需要 JIT 的运行时（Node.js、JVM、.NET），确认服务不依赖它们。");
+
+  if(v.NoNewPrivileges && String(v.AmbientCapabilities||"").trim())
+    note("AmbientCapabilities", "这两个不冲突：能力是启动时赋予的，<code>NoNewPrivileges</code> 只阻止之后再提权。");
+
+  if(!v.DynamicUser && !String(v.User||"").trim())
+    warn("User", "没有指定运行身份，服务将以 root 运行。建议启用 <code>DynamicUser</code> 或指定专用用户。");
+
+  if(String(v.SyslogIdentifier||"").trim() === "" && String(v.name||"").trim())
+    note("SyslogIdentifier", "未设置时日志标识默认就是 <code>"+esc(String(v.name).trim())+"</code>。");
+
+  return out;
+}
+
+/* ============ 渲染 ============ */
+var currentTab = "unit";
+var lastUnitText = "";
+var lastInstallText = "";
+
+function render(){
+  var v = readState();
+  var lines = buildLines(v);
+  var unitText = linesToText(lines);
+  var name = safeName(v.name);
+  var instText = installText(name, unitText);
+
+  lastUnitText = unitText;
+  lastInstallText = instText;
+
+  el("code-unit").innerHTML = linesToHTML(lines);
+  el("code-install").innerHTML = installHTML(instText);
+
+  var issues = validate(v);
+  var errs  = issues.filter(function(i){ return i.l === "err"; });
+  var warns = issues.filter(function(i){ return i.l === "warn"; });
+
+  var dot = el("status-dot"), txt = el("status-text");
+  if(errs.length){
+    dot.dataset.s = "err";
+    txt.textContent = errs.length + " 项错误需要修正";
+  } else if(warns.length){
+    dot.dataset.s = "warn";
+    txt.textContent = "可以生成 · " + warns.length + " 条建议";
+  } else {
+    dot.dataset.s = "ok";
+    txt.textContent = "就绪 · 语法检查无异常";
+  }
+
+  var order = {err:0, warn:1, note:2};
+  issues.sort(function(a,b){ return order[a.l] - order[b.l]; });
+  el("notes").innerHTML = issues.map(function(i){
+    return '<div class="note" data-l="'+i.l+'"><span class="tag">'+
+      (i.l === "err" ? "错误" : i.l === "warn" ? "建议" : "说明") +
+      '</span><span><b>'+esc(i.k)+'</b> · '+i.msg+'</span></div>';
+  }).join("");
+  el("notes").hidden = issues.length === 0;
+
+  updateCounts(v);
+  saveDraft(v);
+}
+
+function updateCounts(v){
+  SCHEMA.forEach(function(g){
+    var n = 0;
+    g.fields.forEach(function(f){
+      if(f.type === "sub") return;
+      var val = v[f.k];
+      if(f.type === "check" ? val === true : String(val || "").trim() !== "") n++;
+    });
+    var node = el("c-"+g.id);
+    if(node){ node.textContent = n; node.dataset.on = n > 0 ? "1" : "0"; }
+  });
+}
+
+/* ============ 草稿：只存在本机浏览器 ============ */
+var DRAFT_KEY = "sdtool.draft.v1";
+var saveTimer = null;
+function saveDraft(v){
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(function(){
+    try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(v)); }catch(e){}
+  }, 400);
+}
+function loadDraft(){
+  try{
+    var raw = localStorage.getItem(DRAFT_KEY);
+    if(!raw) return null;
+    var obj = JSON.parse(raw);
+    return (obj && typeof obj === "object") ? obj : null;
+  }catch(e){ return null; }
+}
+
+/* ============ 复制 ============ */
+function flash(btn, label){
+  var node = btn.querySelector("span") || btn;
+  var old = node.textContent;
+  node.textContent = label;
+  btn.disabled = true;
+  setTimeout(function(){ node.textContent = old; btn.disabled = false; }, 1400);
+}
+function copyText(text, btn){
+  var done = function(){ flash(btn, "已复制"); };
+  var fallback = function(){
+    try{
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly","");
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if(ok){ done(); return; }
+    }catch(e){}
+    flash(btn, "请手动复制");
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, fallback);
+  } else {
+    fallback();
+  }
+}
+
+/* ============ 交互绑定 ============ */
+function switchTab(which){
+  currentTab = which;
+  var isUnit = which === "unit";
+  el("tab-unit").setAttribute("aria-selected", isUnit ? "true" : "false");
+  el("tab-install").setAttribute("aria-selected", isUnit ? "false" : "true");
+  el("pane-unit").hidden = !isUnit;
+  el("pane-install").hidden = isUnit;
+  el("copy-label").textContent = "复制";
+}
+
+function setSheet(open){
+  var out = el("output");
+  out.dataset.open = open ? "true" : "false";
+  el("btn-sheet").setAttribute("aria-expanded", open ? "true" : "false");
+  el("sheet-label").textContent = open ? "收起" : "展开";
+  el("backdrop").hidden = !open;
+  if(open && window.innerWidth <= 940) out.scrollTop = 0;
+}
+
+function bind(){
+  el("form").addEventListener("input", render);
+  el("form").addEventListener("change", render);
+
+  el("form").addEventListener("click", function(ev){
+    var btn = ev.target.closest("[data-action]");
+    if(!btn) return;
+    var action = btn.dataset.action;
+    if(action === "preset"){
+      writeState(Object.assign(readState(), HARDEN_PRESET));
+    } else if(action === "clear-harden"){
+      var patch = {};
+      HARDEN_KEYS.forEach(function(k){ patch[k] = false; });
+      writeState(Object.assign(readState(), patch));
+    }
+  });
+
+  el("btn-reset").addEventListener("click", function(){
+    try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+    writeState(DEFAULTS);
+  });
+
+  el("tab-unit").addEventListener("click", function(){ switchTab("unit"); });
+  el("tab-install").addEventListener("click", function(){ switchTab("install"); });
+
+  el("btn-copy").addEventListener("click", function(){
+    copyText(currentTab === "unit" ? lastUnitText : lastInstallText, el("btn-copy"));
+  });
+
+  el("btn-sheet").addEventListener("click", function(){
+    setSheet(el("output").dataset.open !== "true");
+  });
+  el("backdrop").addEventListener("click", function(){ setSheet(false); });
+  document.addEventListener("keydown", function(ev){
+    if(ev.key === "Escape" && el("output").dataset.open === "true") setSheet(false);
+  });
+}
+
+/* ============ 启动 ============ */
+buildForm();
+bind();
+var draft = loadDraft();
+writeState(draft || DEFAULTS, true);
+render();
+})();
+</script>
