@@ -1,8 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>systemd 服务文件生成器</title>
+<meta name="description" content="在浏览器里生成 systemd unit 文件：按 [Unit] / [Service] / [Install] 分段填写，实时输出，支持 DynamicUser、Environment、StateDirectory，附带语法检查与部署命令，中英双语、深色浅色主题。">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="systemd 服务文件生成器">
+<meta property="og:description" content="在浏览器里生成 systemd unit 文件，实时预览、语法检查、部署命令，中英双语与深色模式。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e6f78'/%3E%3Cpath d='M9 10.5l5.5 5.5L9 21.5' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17.5 21.5H24' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
+/* 基础 reset —— 此前由托管页提供,独立部署后需要自己带上 */
+:root{
+  color-scheme:light;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+
 :root{
   /* 版式:左侧分组表单 / 右侧常驻 unit 文件面板;桌面双栏,手机收成底部抽屉 */
   --bg:#f6f7f9;
@@ -363,7 +386,9 @@ try{
   if(__t === "dark" || __t === "light") document.documentElement.setAttribute("data-theme", __t);
 }catch(e){}
 </script>
+</head>
 
+<body>
 <header class="page-head">
   <div class="brand">
     <span class="eyebrow">/etc/systemd/system</span>
@@ -1475,3 +1500,5 @@ writeState(draft || DEFAULTS, true);
 render();
 })();
 </script>
+</body>
+</html>
