@@ -307,7 +307,7 @@ select{appearance:none;padding-right:30px;cursor:pointer}
 .code-wrap{background:var(--code-bg);overflow:auto;flex:1;min-height:0}
 .code{
   margin:0;padding:14px 16px 18px;
-  font-family:var(--font-mono);font-size:12.5px;line-height:1.68;
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.5;
   color:var(--code-fg);counter-reset:ln;
   tab-size:2;
 }
@@ -1069,7 +1069,7 @@ function buildLines(v){
   var set = function(k){ var x = listVal(v[k]); if(x) d(k, x); };
 
   var name = safeName(v.name);
-  cm("/etc/systemd/system/" + name + ".service");
+  cm("# /etc/systemd/system/" + name + ".service");
   b();
   s("[Unit]");
   if(v.Description) d("Description", v.Description);
@@ -1148,7 +1148,7 @@ function linesToHTML(L){
     else if(l.t === "b") inner = "";
     else inner = '<span class="c-key">'+esc(l.k)+'</span><span class="c-eq">=</span><span class="c-val">'+esc(l.v)+'</span>';
     return '<span class="code-line"><span class="code-text">'+inner+'</span></span>';
-  }).join("\n");
+  }).join("");
 }
 
 function installText(name, unitText){
@@ -1181,7 +1181,7 @@ function installHTML(text){
       ? '<span class="c-cm">'+esc(line)+'</span>'
       : esc(line);
     return '<span class="code-line"><span class="code-text">'+inner+'</span></span>';
-  }).join("\n");
+  }).join("");
 }
 
 /* ============ 校验 ============ */
