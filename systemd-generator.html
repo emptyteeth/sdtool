@@ -117,7 +117,7 @@ input,select,textarea{font:inherit;color:inherit}
 }
 h1{font-size:clamp(23px,3.4vw,31px);font-weight:700;letter-spacing:-.018em;line-height:1.12}
 .sub{color:var(--fg-2);max-width:60ch;font-size:14px}
-.head-actions{display:flex;gap:9px;flex-wrap:wrap}
+.head-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
 
 .btn{
   display:inline-flex;align-items:center;gap:7px;
@@ -134,6 +134,23 @@ h1{font-size:clamp(23px,3.4vw,31px);font-weight:700;letter-spacing:-.018em;line-
 .btn.ghost:hover{background:var(--surface-2);color:var(--fg)}
 .btn.small{padding:5px 10px;font-size:12px;border-radius:7px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.seg{
+  display:inline-flex;align-items:center;gap:2px;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:9px;padding:2px;
+}
+.seg>button{
+  border:none;background:transparent;border-radius:7px;
+  padding:5px 9px;font-size:12.5px;font-weight:500;color:var(--fg-2);
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  transition:background-color .14s,color .14s;
+}
+.seg>button:hover{color:var(--fg)}
+.seg>button[aria-pressed="true"]{
+  background:var(--surface);color:var(--fg);
+  box-shadow:0 1px 2px rgba(16,24,40,.14);
+}
 
 .layout{
   max-width:1500px;margin:0 auto;
@@ -334,17 +351,20 @@ footer code{font-family:var(--font-mono);font-size:12px;color:var(--fg-2)}
   *{transition:none!important;animation:none!important}
 }
 </style>
-
 <header class="page-head">
   <div class="brand">
     <span class="eyebrow">/etc/systemd/system</span>
-    <h1>systemd 服务文件生成器</h1>
-    <p class="sub">按 <code>[Unit]</code> / <code>[Service]</code> / <code>[Install]</code> 分段填写，右侧实时生成 unit 文件，附带语法检查提示与部署命令。</p>
+    <h1 id="i18n-title">systemd 服务文件生成器</h1>
+    <p class="sub" id="i18n-sub">按 <code>[Unit]</code> / <code>[Service]</code> / <code>[Install]</code> 分段填写，右侧实时生成 unit 文件，附带语法检查提示与部署命令。</p>
   </div>
   <div class="head-actions">
+    <div class="seg" id="seg-lang" role="group" aria-label="语言 / Language">
+      <button type="button" data-lang-set="zh" aria-pressed="true">中文</button>
+      <button type="button" data-lang-set="en" aria-pressed="false">EN</button>
+    </div>
     <button class="btn" type="button" id="btn-reset">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
-      重置为示例
+      <span data-i18n="btn.reset">重置为示例</span>
     </button>
   </div>
 </header>
@@ -383,8 +403,8 @@ footer code{font-family:var(--font-mono);font-size:12px;color:var(--fg-2)}
 </div>
 
 <footer>
-  <span>生成的文件放到 <code>/etc/systemd/system/</code>，改完记得 <code>systemctl daemon-reload</code>。</span>
-  <span>填写内容只保存在这台浏览器本地。</span>
+  <span id="i18n-foot1">生成的文件放到 <code>/etc/systemd/system/</code>，改完记得 <code>systemctl daemon-reload</code>。</span>
+  <span id="i18n-foot2">填写内容只保存在这台浏览器本地。</span>
 </footer>
 
 <div id="backdrop" hidden></div>
@@ -393,153 +413,378 @@ footer code{font-family:var(--font-mono);font-size:12px;color:var(--fg-2)}
 (function(){
 "use strict";
 
+/* ============ 文案 ============
+   SCHEMA 里的字段说明就近写成 {zh,en} 对；界面文字、校验消息、
+   生成文件里的注释统一放在 STR 里，按 key 取。 */
+var STR = {
+  zh:{
+    "app.title":"systemd 服务文件生成器",
+    "app.sub":'按 <code>[Unit]</code> / <code>[Service]</code> / <code>[Install]</code> 分段填写，右侧实时生成 unit 文件，附带语法检查提示与部署命令。',
+    "btn.reset":"重置为示例",
+    "tab.unit":"unit 文件",
+    "tab.install":"部署命令",
+    "copy.idle":"复制",
+    "copy.done":"已复制",
+    "copy.manual":"请手动复制",
+    "sheet.show":"展开",
+    "sheet.hide":"收起",
+    "lang.group":"语言 / Language",
+    "status.ok":"就绪 · 语法检查无异常",
+    "status.warn":"可以生成 · {0} 条建议",
+    "status.err":"{0} 项错误需要修正",
+    "tag.err":"错误",
+    "tag.warn":"建议",
+    "tag.note":"说明",
+    "foot.1":'生成的文件放到 <code>/etc/systemd/system/</code>，改完记得 <code>systemctl daemon-reload</code>。',
+    "foot.2":"填写内容只保存在这台浏览器本地。",
+    "form.unset":"不设置",
+    "out.label":"生成结果",
+    "cm.notWantedBy":"# 未设置 WantedBy，systemctl enable 会失败",
+    "cm.unparsed":"# 无法解析: {0}",
+    "inst.1":"# 1. 写入 unit 文件",
+    "inst.2":"# 2. 校验语法（会报出未知指令、路径错误等问题）",
+    "inst.3":"# 3. 重新加载配置并设为开机自启，立即启动",
+    "inst.4":"# 4. 查看状态与日志",
+    "inst.5":"# 改完 unit 文件后只需要：",
+    "v.name.empty":"不能为空，生成的文件需要它来命名。",
+    "v.name.bad":"含有非法字符，只能用字母、数字和 <code>._-@:</code>。",
+    "v.name.ext":"生成的文件名会是 <code>{0}.service</code>。",
+    "v.exec.empty":"必填，否则服务无法启动。",
+    "v.exec.rel":"必须是绝对路径，当前值不是以 <code>/</code> 开头。",
+    "v.exec.mainpid":"<code>$MAINPID</code> 只在 <code>ExecStop</code>、<code>ExecReload</code> 等指令里有意义。",
+    "v.du.user":"<code>DynamicUser=yes</code> 时 <code>User=</code> 会被忽略，已从输出中省略。要固定身份请关掉 DynamicUser。",
+    "v.du.group":"<code>Group=</code> 仍会生效，它会成为动态用户的附加组。",
+    "v.dir.abs":"只填目录名，不要写绝对路径。systemd 会自己决定位置，写 <code>{0}</code> 就够了。",
+    "v.dir.bad":"目录名 <code>{0}</code> 含非法字符，只能是字母、数字、<code>.</code>、<code>_</code>、<code>-</code>。",
+    "v.du.dirs":"动态用户的 UID 每次启动都可能变，只有 <code>StateDirectory</code> 等目录会被自动 chown。服务自己写的数据建议放进这些目录。",
+    "v.du.workdir":"<code>WorkingDirectory</code> 指向的目录需要有读权限；动态用户没有家目录，确认该路径对所有人可读。",
+    "v.restartSec":"没设重启间隔时默认只有 100ms，崩溃循环会瞬间刷满日志。建议填 5。",
+    "v.oneshot.restart":"<code>oneshot</code> 配 <code>Restart={0}</code> 通常不是想要的效果，一次性任务用 <code>on-failure</code> 或不重启。",
+    "v.oneshot.remain":"<code>oneshot</code> 且未开 <code>RemainAfterExit</code> 时，进程退出后状态就是 inactive，依赖它的单元会认为服务已停。",
+    "v.forking.stop":"<code>forking</code> 服务建议显式写 <code>ExecStop</code>，否则 systemd 只能靠 PIDFile 猜怎么停。",
+    "v.watchdog":"看门狗要求服务主动上报心跳，通常需要 <code>Type=notify</code>，当前是 <code>{0}</code>。",
+    "v.wantedBy":"留空的话 <code>systemctl enable</code> 会报错，普通服务填 <code>multi-user.target</code>。",
+    "v.env.bad":"这行不是 <code>KEY=VALUE</code>：<code>{0}</code>",
+    "v.strict.rw":"<code>strict</code> 下整个文件系统只读。StateDirectory 等目录会自动可写，其他要写入的路径请填进 <code>ReadWritePaths</code>。",
+    "v.strict.wd":"<code>strict</code> 下未设 <code>WorkingDirectory</code>，服务会以 <code>/</code> 为工作目录且不可写。",
+    "v.mdeny":"会杀掉需要 JIT 的运行时（Node.js、JVM、.NET），确认服务不依赖它们。",
+    "v.nnp.ambient":"这两个不冲突：能力是启动时赋予的，<code>NoNewPrivileges</code> 只阻止之后再提权。",
+    "v.user.root":"没有指定运行身份，服务将以 root 运行。建议启用 <code>DynamicUser</code> 或指定专用用户。",
+    "v.syslog":"未设置时日志标识默认就是 <code>{0}</code>。"
+  },
+  en:{
+    "app.title":"systemd Service Generator",
+    "app.sub":'Fill in the <code>[Unit]</code> / <code>[Service]</code> / <code>[Install]</code> sections and the unit file builds as you type, with syntax checks and install commands alongside.',
+    "btn.reset":"Reset to sample",
+    "tab.unit":"Unit file",
+    "tab.install":"Install commands",
+    "copy.idle":"Copy",
+    "copy.done":"Copied",
+    "copy.manual":"Select and copy",
+    "sheet.show":"Show",
+    "sheet.hide":"Hide",
+    "lang.group":"Language / 语言",
+    "status.ok":"Ready · no issues found",
+    "status.warn":"Usable · {0} suggestion(s)",
+    "status.err":"{0} error(s) to fix",
+    "tag.err":"Error",
+    "tag.warn":"Warning",
+    "tag.note":"Note",
+    "foot.1":'The generated file goes in <code>/etc/systemd/system/</code>. Run <code>systemctl daemon-reload</code> after any change.',
+    "foot.2":"Everything you type stays in this browser.",
+    "form.unset":"Not set",
+    "out.label":"Generated output",
+    "cm.notWantedBy":"# No WantedBy set — systemctl enable will fail",
+    "cm.unparsed":"# Cannot parse: {0}",
+    "inst.1":"# 1. Write the unit file",
+    "inst.2":"# 2. Check the syntax (reports unknown directives, bad paths and more)",
+    "inst.3":"# 3. Reload, enable at boot, and start it now",
+    "inst.4":"# 4. Check status and logs",
+    "inst.5":"# After any edit to the unit file, just run:",
+    "v.name.empty":"Required — the generated file is named after it.",
+    "v.name.bad":"Illegal characters; only letters, digits and <code>._-@:</code> are allowed.",
+    "v.name.ext":"The file will be named <code>{0}.service</code>.",
+    "v.exec.empty":"Required, or the service cannot start.",
+    "v.exec.rel":"Must be an absolute path; this value does not start with <code>/</code>.",
+    "v.exec.mainpid":"<code>$MAINPID</code> only means something in <code>ExecStop</code>, <code>ExecReload</code> and similar.",
+    "v.du.user":"With <code>DynamicUser=yes</code> the <code>User=</code> setting is ignored and has been left out of the output. Turn DynamicUser off to pin an identity.",
+    "v.du.group":"<code>Group=</code> still applies: it becomes a supplementary group of the dynamic user.",
+    "v.dir.abs":"Give a directory name, not an absolute path. systemd decides the location, so <code>{0}</code> is enough.",
+    "v.dir.bad":"Directory name <code>{0}</code> has illegal characters; only letters, digits, <code>.</code>, <code>_</code> and <code>-</code>.",
+    "v.du.dirs":"A dynamic user's UID can change on every start, and only directories like <code>StateDirectory</code> are chowned automatically. Put data the service writes into one of them.",
+    "v.du.workdir":"The <code>WorkingDirectory</code> must be readable. A dynamic user has no home directory, so make sure the path is world-readable.",
+    "v.restartSec":"Without an interval the default is only 100ms, so a crash loop floods the journal. Set 5.",
+    "v.oneshot.restart":"<code>oneshot</code> with <code>Restart={0}</code> is usually not what you want; use <code>on-failure</code> or no restart for one-shot jobs.",
+    "v.oneshot.remain":"A <code>oneshot</code> unit without <code>RemainAfterExit</code> goes inactive the moment the process exits, so units that depend on it treat it as stopped.",
+    "v.forking.stop":"A <code>forking</code> service should set <code>ExecStop</code> explicitly, otherwise systemd can only guess from PIDFile how to stop it.",
+    "v.watchdog":"The watchdog needs the service to report a heartbeat, which normally means <code>Type=notify</code>; this unit is <code>{0}</code>.",
+    "v.wantedBy":"Left empty, <code>systemctl enable</code> fails. Use <code>multi-user.target</code> for a normal service.",
+    "v.env.bad":"Not a <code>KEY=VALUE</code> line: <code>{0}</code>",
+    "v.strict.rw":"Under <code>strict</code> the whole filesystem is read-only. Directories like StateDirectory stay writable; list anything else in <code>ReadWritePaths</code>.",
+    "v.strict.wd":"Without <code>WorkingDirectory</code> under <code>strict</code>, the service runs in <code>/</code>, which is not writable.",
+    "v.mdeny":"This kills JIT runtimes (Node.js, the JVM, .NET); make sure the service does not need one.",
+    "v.nnp.ambient":"These do not conflict: capabilities are granted at start, and <code>NoNewPrivileges</code> only blocks gaining more afterwards.",
+    "v.user.root":"No identity set, so the service runs as root. Enable <code>DynamicUser</code> or name a dedicated user.",
+    "v.syslog":"Left empty, the log identifier defaults to <code>{0}</code>."
+  }
+};
+
+var LANG_KEY = "sdtool.lang.v1";
+var DRAFT_KEY = "sdtool.draft.v1";
+var lang = "zh";
+
+function t(key){
+  var table = STR[lang] || STR.zh;
+  return (table[key] !== undefined) ? table[key] : (STR.zh[key] !== undefined ? STR.zh[key] : key);
+}
+function fmt(key, args){
+  return t(key).replace(/\{(\d+)\}/g, function(_, i){
+    return (args && args[+i] !== undefined) ? args[+i] : "";
+  });
+}
+/* SCHEMA 里的就近文案写成 {zh,en} 对 */
+function P(x){
+  if(x && typeof x === "object") return (x[lang] !== undefined) ? x[lang] : x.zh;
+  return x;
+}
+
 /* ============ 字段定义 ============
    每个 group 对应一段 unit 文件；tag 显示该段名。 */
 var SCHEMA = [
   {
-    id:"unit", title:"标识", tag:"[Unit]", open:true,
-    desc:"服务叫什么、做什么、文档在哪。",
+    id:"unit", tag:"[Unit]", open:true,
+    title:{zh:"标识", en:"Identity"},
+    desc:{zh:"服务叫什么、做什么、文档在哪。",
+          en:"What the service is called, what it does, and where its docs live."},
     fields:[
-      {k:"name", label:"服务名", zh:"(文件名)", type:"text", ph:"myapp", wide:true,
-       hint:'生成的文件名是 <code>myapp.service</code>，只允许字母、数字和 <code>._-@:</code>'},
+      {k:"name", label:{zh:"服务名", en:"Service name"}, zh:{zh:"(文件名)", en:"(filename)"},
+       type:"text", ph:"myapp", wide:true,
+       hint:{zh:'生成的文件名是 <code>myapp.service</code>，只允许字母、数字和 <code>._-@:</code>',
+             en:'The file will be <code>myapp.service</code>. Only letters, digits and <code>._-@:</code> are allowed.'}},
       {k:"Description", type:"text", ph:"My Application Service", wide:true,
-       hint:"一行说明，<code>systemctl status</code> 里显示的就是它"},
+       hint:{zh:"一行说明，<code>systemctl status</code> 里显示的就是它",
+             en:"One line; this is what <code>systemctl status</code> shows."}},
       {k:"Documentation", type:"text", ph:"https://example.com/docs", wide:true,
-       hint:"文档或 man 页地址，多个用空格分隔"}
+       hint:{zh:"文档或 man 页地址，多个用空格分隔",
+             en:"Docs or man page URLs, space separated."}}
     ]
   },
   {
-    id:"deps", title:"依赖与限制", tag:"[Unit]", open:false,
-    desc:"决定开机顺序、谁能拉起它，以及反复崩溃时的熔断阈值。",
+    id:"deps", tag:"[Unit]", open:false,
+    title:{zh:"依赖与限制", en:"Dependencies & limits"},
+    desc:{zh:"决定开机顺序、谁能拉起它，以及反复崩溃时的熔断阈值。",
+          en:"Startup ordering, who may pull it in, and the crash-loop rate limit."},
     fields:[
-      {k:"After", type:"text", ph:"network-online.target", hint:"在这些单元启动之后再启动本服务"},
-      {k:"Wants", type:"text", ph:"network-online.target", hint:"希望一起启动；对方失败不影响本服务"},
-      {k:"Requires", type:"text", ph:"", hint:"强依赖：对方失败，本服务也不会启动"},
-      {k:"Before", type:"text", ph:"", hint:"在这些单元之前启动本服务"},
-      {k:"PartOf", type:"text", ph:"", hint:"对方重启或停止时，本服务跟着一起"},
-      {k:"Conflicts", type:"text", ph:"", hint:"与这些单元互斥，不能同时运行"},
-      {k:"StartLimitIntervalSec", type:"text", ph:"10", hint:"熔断统计窗口（秒），与下一项配套使用"},
-      {k:"StartLimitBurst", type:"text", ph:"5", hint:"窗口内允许的启动次数，超过就进入 failed"}
+      {k:"After", type:"text", ph:"network-online.target",
+       hint:{zh:"在这些单元启动之后再启动本服务", en:"Start this unit after those units."}},
+      {k:"Wants", type:"text", ph:"network-online.target",
+       hint:{zh:"希望一起启动；对方失败不影响本服务", en:"Pull those units in; their failure does not stop this one."}},
+      {k:"Requires", type:"text", ph:"",
+       hint:{zh:"强依赖：对方失败，本服务也不会启动", en:"Hard dependency: if they fail, this unit will not start either."}},
+      {k:"Before", type:"text", ph:"",
+       hint:{zh:"在这些单元之前启动本服务", en:"Start this unit before those units."}},
+      {k:"PartOf", type:"text", ph:"",
+       hint:{zh:"对方重启或停止时，本服务跟着一起", en:"Restart and stop along with those units."}},
+      {k:"Conflicts", type:"text", ph:"",
+       hint:{zh:"与这些单元互斥，不能同时运行", en:"Mutually exclusive; they cannot run at the same time."}},
+      {k:"StartLimitIntervalSec", type:"text", ph:"10",
+       hint:{zh:"熔断统计窗口（秒），与下一项配套使用", en:"Rate-limit window in seconds; used together with the next field."}},
+      {k:"StartLimitBurst", type:"text", ph:"5",
+       hint:{zh:"窗口内允许的启动次数，超过就进入 failed", en:"Starts allowed inside that window before the unit goes failed."}}
     ]
   },
   {
-    id:"process", title:"进程", tag:"[Service]", open:true,
-    desc:"怎么启动、用什么身份跑。",
+    id:"process", tag:"[Service]", open:true,
+    title:{zh:"进程", en:"Process"},
+    desc:{zh:"怎么启动、用什么身份跑。", en:"How it starts and which identity it runs as."},
     fields:[
-      {k:"Type", label:"Type", type:"select", def:"simple",
+      {k:"Type", type:"select", def:"simple",
        opts:["simple","exec","forking","oneshot","notify","dbus","idle"],
-       hint:'<code>simple</code> 立刻算启动成功；<code>exec</code> 等主进程真正执行后才算（新服务推荐）'},
+       hint:{zh:'<code>simple</code> 立刻算启动成功；<code>exec</code> 等主进程真正执行后才算（新服务推荐）',
+             en:'<code>simple</code> reports success immediately; <code>exec</code> waits until the binary is actually running (preferred for new services).'}},
       {k:"ExecStart", type:"text", ph:"/usr/local/bin/myapp --config /etc/myapp/config.toml", wide:true,
-       hint:"必须是绝对路径，参数跟在后面"},
-      {k:"ExecStartPre", type:"text", ph:"/usr/bin/mkdir -p /run/myapp", hint:"启动前执行的命令，可重复出现"},
-      {k:"ExecStartPost", type:"text", ph:"", hint:"启动成功后执行的命令"},
-      {k:"ExecReload", type:"text", ph:"/bin/kill -HUP $MAINPID", hint:'对应 <code>systemctl reload</code>'},
-      {k:"ExecStop", type:"text", ph:"", hint:"不填时 systemd 直接给主进程发 SIGTERM"},
-      {k:"ExecStopPost", type:"text", ph:"", hint:"无论停止成功与否都会执行，适合清理"},
-      {k:"WorkingDirectory", type:"text", ph:"/opt/myapp", hint:"进程的工作目录，必须已存在"},
-      {k:"User", type:"text", ph:"myapp", hint:"运行身份；留空则是 root"},
-      {k:"Group", type:"text", ph:"myapp", hint:"留空则用 User 的主组"},
+       hint:{zh:"必须是绝对路径，参数跟在后面", en:"Absolute path required; arguments follow."}},
+      {k:"ExecStartPre", type:"text", ph:"/usr/bin/mkdir -p /run/myapp",
+       hint:{zh:"启动前执行的命令，可重复出现", en:"Runs before start; may be repeated."}},
+      {k:"ExecStartPost", type:"text", ph:"",
+       hint:{zh:"启动成功后执行的命令", en:"Runs after a successful start."}},
+      {k:"ExecReload", type:"text", ph:"/bin/kill -HUP $MAINPID",
+       hint:{zh:'对应 <code>systemctl reload</code>', en:'Backs <code>systemctl reload</code>.'}},
+      {k:"ExecStop", type:"text", ph:"",
+       hint:{zh:"不填时 systemd 直接给主进程发 SIGTERM", en:"If empty, systemd sends SIGTERM to the main process."}},
+      {k:"ExecStopPost", type:"text", ph:"",
+       hint:{zh:"无论停止成功与否都会执行，适合清理", en:"Runs whether or not the stop succeeded; good for cleanup."}},
+      {k:"WorkingDirectory", type:"text", ph:"/opt/myapp",
+       hint:{zh:"进程的工作目录，必须已存在", en:"Working directory for the process; it must already exist."}},
+      {k:"User", type:"text", ph:"myapp",
+       hint:{zh:"运行身份；留空则是 root", en:"Identity to run as; empty means root."}},
+      {k:"Group", type:"text", ph:"myapp",
+       hint:{zh:"留空则用 User 的主组", en:"Empty uses the primary group of User."}},
       {k:"DynamicUser", type:"check", wide:true,
-       hint:'<code>yes</code> 时 systemd 在启动时临时分配一个 UID/GID，服务停止后回收，不必预建系统用户。与 <code>User=</code> 互斥'},
-      {k:"SupplementaryGroups", type:"text", ph:"docker video", hint:"附加组，空格分隔"}
+       hint:{zh:'<code>yes</code> 时 systemd 在启动时临时分配一个 UID/GID，服务停止后回收，不必预建系统用户。与 <code>User=</code> 互斥',
+             en:'systemd allocates a temporary UID/GID at start and reclaims it on stop, so no system user is needed. Mutually exclusive with <code>User=</code>.'}},
+      {k:"SupplementaryGroups", type:"text", ph:"docker video",
+       hint:{zh:"附加组，空格分隔", en:"Extra groups, space separated."}}
     ]
   },
   {
-    id:"env", title:"运行环境与目录", tag:"[Service]", open:true,
-    desc:"环境变量，以及由 systemd 自动创建、自动授权、跨重启保留的目录。",
+    id:"env", tag:"[Service]", open:true,
+    title:{zh:"运行环境与目录", en:"Environment & directories"},
+    desc:{zh:"环境变量，以及由 systemd 自动创建、自动授权、跨重启保留的目录。",
+          en:"Environment variables, plus directories systemd creates, chowns, and keeps across restarts."},
     fields:[
-      {k:"Environment", type:"textarea", wide:true, ph:"APP_ENV=production\nPORT=8080\nDATABASE_URL=postgres://localhost:5432/app",
-       hint:"每行一个 <code>KEY=VALUE</code>，输出时每行生成一条 <code>Environment=</code>；含空格的值会自动加引号。以 <code>#</code> 开头的行原样保留为注释"},
+      {k:"Environment", type:"textarea", wide:true,
+       ph:"APP_ENV=production\nPORT=8080\nDATABASE_URL=postgres://localhost:5432/app",
+       hint:{zh:'每行一个 <code>KEY=VALUE</code>，输出时每行生成一条 <code>Environment=</code>；含空格的值会自动加引号。以 <code>#</code> 开头的行原样保留为注释',
+             en:'One <code>KEY=VALUE</code> per line; each becomes an <code>Environment=</code> directive. Values containing spaces are quoted automatically. Lines starting with <code>#</code> are kept as comments.'}},
       {k:"EnvironmentFile", type:"textarea", wide:true, ph:"/etc/myapp/env",
-       hint:"从文件读取环境变量，每行一个路径；<code>-</code> 前缀表示文件不存在也不报错"},
-      {k:"StateDirectory", type:"text", ph:"myapp", hint:'持久状态目录，实际落在 <code>/var/lib/private/myapp</code>（DynamicUser 时）'},
-      {k:"CacheDirectory", type:"text", ph:"myapp", hint:"缓存目录 <code>/var/cache/myapp</code>，可安全清空"},
-      {k:"LogsDirectory", type:"text", ph:"myapp", hint:"日志目录 <code>/var/log/myapp</code>"},
-      {k:"ConfigurationDirectory", type:"text", ph:"myapp", hint:"配置目录 <code>/etc/myapp</code>，只读挂载"},
-      {k:"RuntimeDirectory", type:"text", ph:"myapp", hint:"运行时目录 <code>/run/myapp</code>，停止后自动删除"},
+       hint:{zh:'从文件读取环境变量，每行一个路径；<code>-</code> 前缀表示文件不存在也不报错',
+             en:'Read variables from files, one path per line; a <code>-</code> prefix means a missing file is not an error.'}},
+      {k:"StateDirectory", type:"text", ph:"myapp",
+       hint:{zh:'持久状态目录，实际落在 <code>/var/lib/private/myapp</code>（DynamicUser 时）',
+             en:'Persistent state, landing in <code>/var/lib/private/myapp</code> under DynamicUser.'}},
+      {k:"CacheDirectory", type:"text", ph:"myapp",
+       hint:{zh:'缓存目录 <code>/var/cache/myapp</code>，可安全清空', en:'Cache directory <code>/var/cache/myapp</code>; safe to wipe.'}},
+      {k:"LogsDirectory", type:"text", ph:"myapp",
+       hint:{zh:'日志目录 <code>/var/log/myapp</code>', en:'Log directory <code>/var/log/myapp</code>.'}},
+      {k:"ConfigurationDirectory", type:"text", ph:"myapp",
+       hint:{zh:'配置目录 <code>/etc/myapp</code>，只读挂载', en:'Config directory <code>/etc/myapp</code>, mounted read-only.'}},
+      {k:"RuntimeDirectory", type:"text", ph:"myapp",
+       hint:{zh:'运行时目录 <code>/run/myapp</code>，停止后自动删除', en:'Runtime directory <code>/run/myapp</code>, removed on stop.'}},
       {k:"RuntimeDirectoryPreserve", type:"select", def:"", opts:["","no","yes","restart"],
-       hint:"<code>restart</code> = 重启时保留 /run 下的内容"}
+       hint:{zh:'<code>restart</code> = 重启时保留 /run 下的内容', en:'<code>restart</code> keeps the contents under /run across a restart.'}}
     ]
   },
   {
-    id:"lifecycle", title:"重启与超时", tag:"[Service]", open:true,
-    desc:"退出后怎么办，等多久，什么时候算卡死。",
+    id:"lifecycle", tag:"[Service]", open:true,
+    title:{zh:"重启与超时", en:"Restart & timeouts"},
+    desc:{zh:"退出后怎么办，等多久，什么时候算卡死。",
+          en:"What happens after exit, how long to wait, and when it counts as hung."},
     fields:[
       {k:"Restart", type:"select", def:"on-failure",
        opts:["no","on-success","on-failure","on-abnormal","on-watchdog","on-abort","always"],
-       hint:'<code>on-failure</code> 覆盖非零退出、信号杀死和超时'},
-      {k:"RestartSec", type:"text", ph:"5", hint:"重启前等待秒数，不设默认只有 100ms"},
-      {k:"TimeoutStopSec", type:"text", ph:"20", hint:"停止超时，超时后 SIGKILL"},
-      {k:"WatchdogSec", type:"text", ph:"", hint:'需要服务主动调用 <code>sd_notify(WATCHDOG=1)</code>，配合 Type=notify'},
+       hint:{zh:'<code>on-failure</code> 覆盖非零退出、信号杀死和超时',
+             en:'<code>on-failure</code> covers non-zero exits, signals and timeouts.'}},
+      {k:"RestartSec", type:"text", ph:"5",
+       hint:{zh:"重启前等待秒数，不设默认只有 100ms", en:"Seconds to wait before restarting; the default is only 100ms."}},
+      {k:"TimeoutStopSec", type:"text", ph:"20",
+       hint:{zh:"停止超时，超时后 SIGKILL", en:"Stop timeout; SIGKILL follows."}},
+      {k:"WatchdogSec", type:"text", ph:"",
+       hint:{zh:'需要服务主动调用 <code>sd_notify(WATCHDOG=1)</code>，配合 Type=notify',
+             en:'Requires the service to call <code>sd_notify(WATCHDOG=1)</code>; pair with Type=notify.'}},
       {k:"RemainAfterExit", type:"check", wide:true,
-       hint:"进程退出后仍算 active，适合 Type=oneshot 的一次性初始化任务"}
+       hint:{zh:"进程退出后仍算 active，适合 Type=oneshot 的一次性初始化任务",
+             en:"Stays active after the process exits; suits Type=oneshot setup jobs."}}
     ]
   },
   {
-    id:"harden", title:"加固与资源", tag:"[Service]", open:false,
-    desc:"沙箱开关。默认全部关闭，改动前先确认服务真的不需要这些权限。",
+    id:"harden", tag:"[Service]", open:false,
+    title:{zh:"加固与资源", en:"Hardening & resources"},
+    desc:{zh:"沙箱开关。默认全部关闭，改动前先确认服务真的不需要这些权限。",
+          en:"Sandbox switches, all off by default. Before turning one off, make sure the service really does not need it."},
     actions:[
-      {id:"preset", label:"套用推荐加固"},
-      {id:"clear-harden", label:"全部关闭"}
+      {id:"preset", label:{zh:"套用推荐加固", en:"Apply recommended hardening"}},
+      {id:"clear-harden", label:{zh:"全部关闭", en:"Turn all off"}}
     ],
     fields:[
-      {k:"_sub_sandbox", type:"sub", label:"沙箱"},
-      {k:"NoNewPrivileges", type:"check", hint:"禁止通过 setuid/setgid 提权，几乎所有服务都该开"},
-      {k:"PrivateTmp", type:"check", hint:"给服务独立的 /tmp 和 /var/tmp"},
-      {k:"PrivateDevices", type:"check", hint:"只暴露 /dev/null、/dev/zero 等基本设备"},
+      {k:"_sub_sandbox", type:"sub", label:{zh:"沙箱", en:"Sandbox"}},
+      {k:"NoNewPrivileges", type:"check",
+       hint:{zh:"禁止通过 setuid/setgid 提权，几乎所有服务都该开",
+             en:"Blocks privilege gain through setuid/setgid; almost every service should set it."}},
+      {k:"PrivateTmp", type:"check",
+       hint:{zh:"给服务独立的 /tmp 和 /var/tmp", en:"Gives the service its own /tmp and /var/tmp."}},
+      {k:"PrivateDevices", type:"check",
+       hint:{zh:"只暴露 /dev/null、/dev/zero 等基本设备", en:"Exposes only basic devices like /dev/null and /dev/zero."}},
       {k:"ProtectSystem", type:"select", def:"", opts:["","no","full","strict"],
-       hint:'<code>strict</code> 整个文件系统只读，写入路径需列入 ReadWritePaths'},
+       hint:{zh:'<code>strict</code> 整个文件系统只读，写入路径需列入 ReadWritePaths',
+             en:'<code>strict</code> makes the whole filesystem read-only; writable paths must be listed in ReadWritePaths.'}},
       {k:"ProtectHome", type:"select", def:"", opts:["","no","yes","read-only","tmpfs"],
-       hint:"隐藏或只读化 /home、/root、/run/user"},
-      {k:"ProtectKernelTunables", type:"check", hint:"/proc/sys、/sys 只读"},
-      {k:"ProtectKernelModules", type:"check", hint:"禁止加载/卸载内核模块"},
-      {k:"ProtectKernelLogs", type:"check", hint:"禁止读取内核环形缓冲区"},
-      {k:"ProtectControlGroups", type:"check", hint:"cgroup 文件系统只读"},
-      {k:"ProtectClock", type:"check", hint:"禁止修改系统时钟"},
-      {k:"ProtectHostname", type:"check", hint:"禁止修改主机名和域名"},
+       hint:{zh:"隐藏或只读化 /home、/root、/run/user", en:"Hides or read-only-mounts /home, /root and /run/user."}},
+      {k:"ProtectKernelTunables", type:"check",
+       hint:{zh:"/proc/sys、/sys 只读", en:"Makes /proc/sys and /sys read-only."}},
+      {k:"ProtectKernelModules", type:"check",
+       hint:{zh:"禁止加载/卸载内核模块", en:"Blocks loading and unloading kernel modules."}},
+      {k:"ProtectKernelLogs", type:"check",
+       hint:{zh:"禁止读取内核环形缓冲区", en:"Blocks reading the kernel ring buffer."}},
+      {k:"ProtectControlGroups", type:"check",
+       hint:{zh:"cgroup 文件系统只读", en:"Makes the cgroup filesystem read-only."}},
+      {k:"ProtectClock", type:"check",
+       hint:{zh:"禁止修改系统时钟", en:"Blocks changing the system clock."}},
+      {k:"ProtectHostname", type:"check",
+       hint:{zh:"禁止修改主机名和域名", en:"Blocks changing the hostname and domain name."}},
       {k:"RestrictAddressFamilies", type:"text", ph:"AF_INET AF_INET6 AF_UNIX",
-       hint:"只允许列出的 socket 地址族"},
-      {k:"RestrictNamespaces", type:"check", hint:"禁止创建新的命名空间"},
-      {k:"LockPersonality", type:"check", hint:"锁定执行域，阻止切换 personality"},
-      {k:"MemoryDenyWriteExecute", type:"check", hint:"禁止可写且可执行的内存页，JIT 类运行时（Node、JVM）会崩"},
-      {k:"RestrictRealtime", type:"check", hint:"禁止实时调度策略"},
-      {k:"RestrictSUIDSGID", type:"check", hint:"禁止创建 setuid/setgid 文件"},
-      {k:"RemoveIPC", type:"check", hint:"服务退出时清掉它占用的 System V / POSIX IPC"},
-      {k:"SystemCallFilter", type:"text", ph:"@system-service", hint:'<code>@system-service</code> 是常用白名单组'},
+       hint:{zh:"只允许列出的 socket 地址族", en:"Allows only the listed socket address families."}},
+      {k:"RestrictNamespaces", type:"check",
+       hint:{zh:"禁止创建新的命名空间", en:"Blocks creating new namespaces."}},
+      {k:"LockPersonality", type:"check",
+       hint:{zh:"锁定执行域，阻止切换 personality", en:"Locks the execution domain against personality changes."}},
+      {k:"MemoryDenyWriteExecute", type:"check",
+       hint:{zh:"禁止可写且可执行的内存页，JIT 类运行时（Node、JVM）会崩",
+             en:"Forbids writable-executable pages; JIT runtimes such as Node and the JVM will crash."}},
+      {k:"RestrictRealtime", type:"check",
+       hint:{zh:"禁止实时调度策略", en:"Blocks realtime scheduling policies."}},
+      {k:"RestrictSUIDSGID", type:"check",
+       hint:{zh:"禁止创建 setuid/setgid 文件", en:"Blocks creating setuid/setgid files."}},
+      {k:"RemoveIPC", type:"check",
+       hint:{zh:"服务退出时清掉它占用的 System V / POSIX IPC",
+             en:"Clears the service's System V and POSIX IPC on exit."}},
+      {k:"SystemCallFilter", type:"text", ph:"@system-service",
+       hint:{zh:'<code>@system-service</code> 是常用白名单组', en:'<code>@system-service</code> is the usual allow-list group.'}},
       {k:"SystemCallArchitectures", type:"select", def:"", opts:["","native"],
-       hint:"只允许本机架构的系统调用"},
-      {k:"CapabilityBoundingSet", type:"text", ph:"CAP_NET_BIND_SERVICE", hint:"保留的能力集合，留空即全部保留"},
+       hint:{zh:"只允许本机架构的系统调用", en:"Allows syscalls from the native architecture only."}},
+      {k:"CapabilityBoundingSet", type:"text", ph:"CAP_NET_BIND_SERVICE",
+       hint:{zh:"保留的能力集合，留空即全部保留", en:"Capabilities to keep; empty keeps all of them."}},
       {k:"AmbientCapabilities", type:"text", ph:"CAP_NET_BIND_SERVICE",
-       hint:"把能力交给非 root 进程，让普通用户也能绑 80 端口"},
-      {k:"ReadWritePaths", type:"text", ph:"/var/www/uploads", hint:"在只读文件系统中额外开放可写的路径"},
-      {k:"ReadOnlyPaths", type:"text", ph:"", hint:"额外强制只读的路径"},
-      {k:"InaccessiblePaths", type:"text", ph:"", hint:"对服务完全不可见的路径"},
+       hint:{zh:"把能力交给非 root 进程，让普通用户也能绑 80 端口",
+             en:"Hands capabilities to a non-root process, so a normal user can bind port 80."}},
+      {k:"ReadWritePaths", type:"text", ph:"/var/www/uploads",
+       hint:{zh:"在只读文件系统中额外开放可写的路径", en:"Paths to keep writable under a read-only filesystem."}},
+      {k:"ReadOnlyPaths", type:"text", ph:"",
+       hint:{zh:"额外强制只读的路径", en:"Extra paths forced read-only."}},
+      {k:"InaccessiblePaths", type:"text", ph:"",
+       hint:{zh:"对服务完全不可见的路径", en:"Paths the service cannot see at all."}},
 
-      {k:"_sub_log", type:"sub", label:"日志"},
+      {k:"_sub_log", type:"sub", label:{zh:"日志", en:"Logging"}},
       {k:"StandardOutput", type:"select", def:"", opts:["","journal","syslog","null","inherit"],
-       hint:"默认进 journal，也就是 <code>journalctl -u</code> 能看到"},
+       hint:{zh:'默认进 journal，也就是 <code>journalctl -u</code> 能看到',
+             en:'Goes to the journal by default, so <code>journalctl -u</code> shows it.'}},
       {k:"StandardError", type:"select", def:"", opts:["","inherit","journal","syslog","null"],
-       hint:'<code>inherit</code> 表示与 StandardOutput 一致'},
-      {k:"SyslogIdentifier", type:"text", ph:"myapp", hint:"日志条目前缀，默认取服务名"},
+       hint:{zh:'<code>inherit</code> 表示与 StandardOutput 一致', en:'<code>inherit</code> follows StandardOutput.'}},
+      {k:"SyslogIdentifier", type:"text", ph:"myapp",
+       hint:{zh:"日志条目前缀，默认取服务名", en:"Log line prefix; defaults to the unit name."}},
 
-      {k:"_sub_res", type:"sub", label:"资源限制"},
-      {k:"LimitNOFILE", type:"text", ph:"65536", hint:"文件描述符上限"},
-      {k:"MemoryMax", type:"text", ph:"512M", hint:"内存上限，超出即 OOM kill；可写 512M、2G、60%"},
-      {k:"CPUQuota", type:"text", ph:"50%", hint:"CPU 配额，50% 表示最多用半个核"},
-      {k:"Nice", type:"text", ph:"5", hint:"调度优先级，-20 最高、19 最低"},
-      {k:"OOMScoreAdjust", type:"text", ph:"", hint:"OOM 时被杀的可能性，-1000 到 1000"},
-      {k:"UMask", type:"text", ph:"0027", hint:"文件创建掩码，八进制"}
+      {k:"_sub_res", type:"sub", label:{zh:"资源限制", en:"Resource limits"}},
+      {k:"LimitNOFILE", type:"text", ph:"65536",
+       hint:{zh:"文件描述符上限", en:"Open file descriptor limit."}},
+      {k:"MemoryMax", type:"text", ph:"512M",
+       hint:{zh:"内存上限，超出即 OOM kill；可写 512M、2G、60%",
+             en:"Memory ceiling; exceeding it means an OOM kill. Accepts 512M, 2G, 60%."}},
+      {k:"CPUQuota", type:"text", ph:"50%",
+       hint:{zh:"CPU 配额，50% 表示最多用半个核", en:"CPU quota; 50% means at most half a core."}},
+      {k:"Nice", type:"text", ph:"5",
+       hint:{zh:"调度优先级，-20 最高、19 最低", en:"Scheduling priority; -20 is highest, 19 lowest."}},
+      {k:"OOMScoreAdjust", type:"text", ph:"",
+       hint:{zh:"OOM 时被杀的可能性，-1000 到 1000", en:"Likelihood of being killed by OOM, from -1000 to 1000."}},
+      {k:"UMask", type:"text", ph:"0027",
+       hint:{zh:"文件创建掩码，八进制", en:"File creation mask, octal."}}
     ]
   },
   {
-    id:"install", title:"安装", tag:"[Install]", open:true,
-    desc:"决定 systemctl enable 时挂到哪个 target 下。",
+    id:"install", tag:"[Install]", open:true,
+    title:{zh:"安装", en:"Install"},
+    desc:{zh:"决定 systemctl enable 时挂到哪个 target 下。",
+          en:"Which target the unit hooks into when you run systemctl enable."},
     fields:[
       {k:"WantedBy", type:"text", ph:"multi-user.target", wide:true, def:"multi-user.target",
-       hint:'普通服务用 <code>multi-user.target</code>，开机即启；用户级服务用 <code>default.target</code>'},
-      {k:"RequiredBy", type:"text", ph:"", hint:"被这些 target 强依赖，一般不用填"},
-      {k:"Also", type:"text", ph:"", hint:"enable 本服务时一并 enable 的其他单元，如 <code>myapp.socket</code>"},
-      {k:"Alias", type:"text", ph:"", hint:"给本单元起的别名，如 <code>db.service</code>"}
+       hint:{zh:'普通服务用 <code>multi-user.target</code>，开机即启；用户级服务用 <code>default.target</code>',
+             en:'Use <code>multi-user.target</code> for a normal boot-time service, <code>default.target</code> for user units.'}},
+      {k:"RequiredBy", type:"text", ph:"",
+       hint:{zh:"被这些 target 强依赖，一般不用填", en:"Targets that hard-require this unit; rarely needed."}},
+      {k:"Also", type:"text", ph:"",
+       hint:{zh:"enable 本服务时一并 enable 的其他单元，如 <code>myapp.socket</code>",
+             en:"Units enabled alongside this one, such as <code>myapp.socket</code>."}},
+      {k:"Alias", type:"text", ph:"",
+       hint:{zh:"给本单元起的别名，如 <code>db.service</code>", en:"Alternate name for this unit, such as <code>db.service</code>."}}
     ]
   }
 ];
@@ -592,16 +837,21 @@ var HARDEN_KEYS = Object.keys(HARDEN_PRESET);
 
 /* ============ 展平字段表 ============ */
 var FIELDS = [];
+var LABELS = {};
 SCHEMA.forEach(function(g){
   g.fields.forEach(function(f){
     if(f.type === "sub") return;
     f.group = g.id;
-    if(f.label === undefined) f.label = f.k;
+    if(f.label === undefined) f.label = {zh:f.k, en:f.k};
+    LABELS[f.k] = f.label;
     FIELDS.push(f);
   });
 });
 var FIELD_BY_KEY = {};
 FIELDS.forEach(function(f){ FIELD_BY_KEY[f.k] = f; });
+function labelOf(k){
+  return LABELS[k] ? P(LABELS[k]) : k;
+}
 
 /* ============ 构建表单 ============ */
 function esc(s){
@@ -617,22 +867,22 @@ function fieldHTML(f){
   var id = "f-" + f.k;
   var wide = f.wide ? " wide" : "";
   if(f.type === "sub"){
-    return '<div class="subhead">' + esc(f.label) + "</div>";
+    return '<div class="subhead">' + esc(P(f.label)) + "</div>";
   }
   if(f.type === "check"){
     return '<div class="field'+wide+'"><label class="check" for="'+id+'">' +
       '<input type="checkbox" id="'+id+'" name="'+esc(f.k)+'">' +
-      '<span class="cl"><b>'+esc(f.label)+'</b>' +
-      (f.hint ? '<span class="hint">'+f.hint+'</span>' : "") +
+      '<span class="cl"><b>'+esc(P(f.label))+'</b>' +
+      (f.hint ? '<span class="hint">'+P(f.hint)+'</span>' : "") +
       '</span></label></div>';
   }
-  var label = '<label for="'+id+'">'+esc(f.label)+
-    (f.zh ? '<span class="zh">'+esc(f.zh)+'</span>' : "")+'</label>';
+  var label = '<label for="'+id+'">'+esc(P(f.label))+
+    (f.zh ? '<span class="zh">'+esc(P(f.zh))+'</span>' : "")+'</label>';
   var ctrl;
   if(f.type === "select"){
     ctrl = '<div class="select-wrap"><select id="'+id+'" name="'+esc(f.k)+'">' +
       f.opts.map(function(o){
-        return '<option value="'+esc(o)+'">'+esc(o === "" ? "不设置" : o)+'</option>';
+        return '<option value="'+esc(o)+'">'+esc(o === "" ? t("form.unset") : o)+'</option>';
       }).join("") + '</select>' + CARET + '</div>';
   } else if(f.type === "textarea"){
     ctrl = '<textarea id="'+id+'" name="'+esc(f.k)+'" rows="4" spellcheck="false" placeholder="'+esc(f.ph||"")+'"></textarea>';
@@ -640,23 +890,51 @@ function fieldHTML(f){
     ctrl = '<input type="text" id="'+id+'" name="'+esc(f.k)+'" spellcheck="false" placeholder="'+esc(f.ph||"")+'">';
   }
   return '<div class="field'+wide+'">'+label+ctrl+
-    (f.hint ? '<span class="hint">'+f.hint+'</span>' : "")+'</div>';
+    (f.hint ? '<span class="hint">'+P(f.hint)+'</span>' : "")+'</div>';
 }
 
 function buildForm(){
+  var openState = {};
+  Array.prototype.forEach.call(document.querySelectorAll(".group"), function(d){
+    openState[d.id] = d.open;
+  });
   el("form").innerHTML = SCHEMA.map(function(g){
-    var body = (g.desc ? '<p class="g-desc">'+g.desc+'</p>' : "") +
+    var body = (g.desc ? '<p class="g-desc">'+P(g.desc)+'</p>' : "") +
       '<div class="fields">' + g.fields.map(fieldHTML).join("") + '</div>';
     var actions = (g.actions || []).map(function(a){
-      return '<button class="btn small" type="button" data-action="'+a.id+'">'+esc(a.label)+'</button>';
+      return '<button class="btn small" type="button" data-action="'+a.id+'">'+esc(P(a.label))+'</button>';
     }).join("");
     if(actions) body = '<div class="head-actions" style="margin-bottom:14px">'+actions+'</div>' + body;
     return '<details class="group" id="g-'+g.id+'"'+(g.open?" open":"")+'>' +
-      '<summary>'+CHEVRON+'<span>'+esc(g.title)+'</span>' +
+      '<summary>'+CHEVRON+'<span>'+esc(P(g.title))+'</span>' +
       '<span class="g-tag">'+esc(g.tag)+'</span>' +
       '<span class="g-count" id="c-'+g.id+'">0</span>' +
       '</summary><div class="group-body">'+body+'</div></details>';
   }).join("");
+  /* 切语言重建表单时保留各分组的展开状态 */
+  Object.keys(openState).forEach(function(id){
+    var d = el(id);
+    if(d) d.open = openState[id];
+  });
+}
+
+/* ============ 界面文字 ============ */
+function buildChrome(){
+  document.documentElement.lang = (lang === "zh") ? "zh-CN" : "en";
+  document.title = t("app.title");
+  el("i18n-title").textContent = t("app.title");
+  el("i18n-sub").innerHTML = t("app.sub");
+  el("i18n-foot1").innerHTML = t("foot.1");
+  el("i18n-foot2").textContent = t("foot.2");
+  el("tab-unit").textContent = t("tab.unit");
+  el("tab-install").textContent = t("tab.install");
+  el("copy-label").textContent = t("copy.idle");
+  el("sheet-label").textContent = (el("output").dataset.open === "true") ? t("sheet.hide") : t("sheet.show");
+  el("output").setAttribute("aria-label", t("out.label"));
+  el("seg-lang").setAttribute("aria-label", t("lang.group"));
+  Array.prototype.forEach.call(document.querySelectorAll("[data-i18n]"), function(node){
+    node.textContent = t(node.dataset.i18n);
+  });
 }
 
 /* ============ 读写表单值 ============ */
@@ -752,7 +1030,7 @@ function buildLines(v){
 
   parseEnv(v.Environment).forEach(function(e){
     if(e.comment) cm(e.comment);
-    else if(e.bad) cm("# 无法解析: " + e.bad);
+    else if(e.bad) cm(fmt("cm.unparsed", [e.bad]));
     else d("Environment", quoteEnv(e.key + "=" + e.value));
   });
   parsePaths(v.EnvironmentFile).forEach(function(p){ d("EnvironmentFile", p); });
@@ -781,7 +1059,7 @@ function buildLines(v){
   b();
   s("[Install]");
   set("WantedBy"); set("RequiredBy"); set("Also"); set("Alias");
-  if(!listVal(v.WantedBy)) cm("# 未设置 WantedBy，systemctl enable 会失败");
+  if(!listVal(v.WantedBy)) cm(t("cm.notWantedBy"));
 
   while(L.length && L[L.length-1].t === "b") L.pop();
   return L;
@@ -809,31 +1087,31 @@ function linesToHTML(L){
 
 function installText(name, unitText){
   return [
-    "# 1. 写入 unit 文件",
+    t("inst.1"),
     "sudo tee /etc/systemd/system/" + name + ".service >/dev/null <<'EOF'",
     unitText.replace(/\n$/, ""),
     "EOF",
     "",
-    "# 2. 校验语法（会报出未知指令、路径错误等问题）",
+    t("inst.2"),
     "sudo systemd-analyze verify /etc/systemd/system/" + name + ".service",
     "",
-    "# 3. 重新加载配置并设为开机自启，立即启动",
+    t("inst.3"),
     "sudo systemctl daemon-reload",
     "sudo systemctl enable --now " + name + ".service",
     "",
-    "# 4. 查看状态与日志",
+    t("inst.4"),
     "systemctl status " + name + ".service",
     "journalctl -u " + name + ".service -f",
     "",
-    "# 改完 unit 文件后只需要：",
+    t("inst.5"),
     "sudo systemctl daemon-reload && sudo systemctl restart " + name + ".service"
   ].join("\n") + "\n";
 }
 
 function installHTML(text){
   return text.split("\n").map(function(line){
-    var t = line.trim();
-    var inner = (t.charAt(0) === "#")
+    var t2 = line.trim();
+    var inner = (t2.charAt(0) === "#")
       ? '<span class="c-cm">'+esc(line)+'</span>'
       : esc(line);
     return '<span class="code-line"><span class="code-text">'+inner+'</span></span>';
@@ -850,83 +1128,83 @@ function validate(v){
   var note = function(k, msg){ out.push({l:"note", k:k, msg:msg}); };
 
   var name = String(v.name || "").trim();
-  if(!name) err("服务名", "不能为空，生成的文件需要它来命名。");
+  if(!name) err("name", t("v.name.empty"));
   else if(!/^[A-Za-z0-9:_.@\\-]+$/.test(name))
-    err("服务名", "含有非法字符，只能用字母、数字和 <code>._-@:</code>。");
+    err("name", t("v.name.bad"));
   else if(!/\.(service|socket|timer|target|mount|path)$/.test(name))
-    note("服务名", "生成的文件名会是 <code>"+esc(name)+".service</code>。");
+    note("name", fmt("v.name.ext", [esc(name)]));
 
-  if(!String(v.ExecStart || "").trim()) err("ExecStart", "必填，否则服务无法启动。");
+  if(!String(v.ExecStart || "").trim()) err("ExecStart", t("v.exec.empty"));
   else if(v.ExecStart.trim().charAt(0) !== "/")
-    err("ExecStart", "必须是绝对路径，当前值不是以 <code>/</code> 开头。");
+    err("ExecStart", t("v.exec.rel"));
 
   if(String(v.ExecStart||"").indexOf("$MAINPID") >= 0)
-    warn("ExecStart", "<code>$MAINPID</code> 只在 <code>ExecStop</code>、<code>ExecReload</code> 等指令里有意义。");
+    warn("ExecStart", t("v.exec.mainpid"));
 
   if(v.DynamicUser && String(v.User||"").trim())
-    warn("DynamicUser", "<code>DynamicUser=yes</code> 时 <code>User=</code> 会被忽略，已从输出中省略。要固定身份请关掉 DynamicUser。");
+    warn("DynamicUser", t("v.du.user"));
 
   if(v.DynamicUser && String(v.Group||"").trim())
-    note("DynamicUser", "<code>Group=</code> 仍会生效，它会成为动态用户的附加组。");
+    note("DynamicUser", t("v.du.group"));
 
   DIR_KEYS.forEach(function(k){
     var raw = String(v[k] || "").trim();
     if(!raw) return;
     if(raw.charAt(0) === "/")
-      err(k, "只填目录名，不要写绝对路径。systemd 会自己决定位置，写 <code>"+esc(raw.split("/").pop()||"")+"</code> 就够了。");
+      err(k, fmt("v.dir.abs", [esc(raw.split("/").pop()||"")]));
     else {
       var bad = raw.split(/\s+/).filter(function(n){ return !/^[A-Za-z0-9._-]+$/.test(n); });
-      if(bad.length) err(k, "目录名 <code>"+esc(bad[0])+"</code> 含非法字符，只能是字母、数字、<code>.</code>、<code>_</code>、<code>-</code>。");
+      if(bad.length) err(k, fmt("v.dir.bad", [esc(bad[0])]));
     }
   });
 
   if(v.DynamicUser && !String(v.StateDirectory||"").trim() &&
      (String(v.CacheDirectory||"").trim() || String(v.LogsDirectory||"").trim()))
-    note("DynamicUser", "动态用户的 UID 每次启动都可能变，只有 <code>StateDirectory</code> 等目录会被自动 chown。服务自己写的数据建议放进这些目录。");
+    note("DynamicUser", t("v.du.dirs"));
 
   if(v.DynamicUser && String(v.WorkingDirectory||"").trim() &&
      DIR_KEYS.every(function(k){ return !String(v[k]||"").trim(); }))
-    warn("DynamicUser", "<code>WorkingDirectory</code> 指向的目录需要有读权限；动态用户没有家目录，确认该路径对所有人可读。");
+    warn("DynamicUser", t("v.du.workdir"));
 
   if(v.Restart && v.Restart !== "no" && !String(v.RestartSec||"").trim())
-    warn("RestartSec", "没设重启间隔时默认只有 100ms，崩溃循环会瞬间刷满日志。建议填 5。");
+    warn("RestartSec", t("v.restartSec"));
 
   if(v.Type === "oneshot" && v.Restart && v.Restart !== "no" && v.Restart !== "on-failure")
-    warn("Type", "<code>oneshot</code> 配 <code>Restart="+esc(v.Restart)+"</code> 通常不是想要的效果，一次性任务用 <code>on-failure</code> 或不重启。");
+    warn("Type", fmt("v.oneshot.restart", [esc(v.Restart)]));
 
   if(v.Type === "oneshot" && !v.RemainAfterExit)
-    note("Type", "<code>oneshot</code> 且未开 <code>RemainAfterExit</code> 时，进程退出后状态就是 inactive，依赖它的单元会认为服务已停。");
+    note("Type", t("v.oneshot.remain"));
 
   if(v.Type === "forking" && !String(v.ExecStop||"").trim())
-    note("Type", "<code>forking</code> 服务建议显式写 <code>ExecStop</code>，否则 systemd 只能靠 PIDFile 猜怎么停。");
+    note("Type", t("v.forking.stop"));
 
   if(v.WatchdogSec && v.Type !== "notify" && v.Type !== "notify-reload")
-    warn("WatchdogSec", "看门狗要求服务主动上报心跳，通常需要 <code>Type=notify</code>，当前是 <code>"+esc(v.Type)+"</code>。");
+    warn("WatchdogSec", fmt("v.watchdog", [esc(v.Type)]));
 
   if(!listVal(v.WantedBy))
-    warn("WantedBy", "留空的话 <code>systemctl enable</code> 会报错，普通服务填 <code>multi-user.target</code>。");
+    warn("WantedBy", t("v.wantedBy"));
 
   parseEnv(v.Environment).forEach(function(e){
-    if(e.bad) err("Environment", "这行不是 <code>KEY=VALUE</code>：<code>"+esc(e.bad)+"</code>");
+    if(e.bad) err("Environment", fmt("v.env.bad", [esc(e.bad)]));
   });
 
   var strict = v.ProtectSystem === "strict";
   if(strict && !String(v.ReadWritePaths||"").trim())
-    note("ProtectSystem", "<code>strict</code> 下整个文件系统只读。StateDirectory 等目录会自动可写，其他要写入的路径请填进 <code>ReadWritePaths</code>。");
+    note("ProtectSystem", t("v.strict.rw"));
   if(strict && !String(v.WorkingDirectory||"").trim() && !v.DynamicUser)
-    note("ProtectSystem", "<code>strict</code> 下未设 <code>WorkingDirectory</code>，服务会以 <code>/</code> 为工作目录且不可写。");
+    note("ProtectSystem", t("v.strict.wd"));
 
   if(v.MemoryDenyWriteExecute)
-    warn("MemoryDenyWriteExecute", "会杀掉需要 JIT 的运行时（Node.js、JVM、.NET），确认服务不依赖它们。");
+    warn("MemoryDenyWriteExecute", t("v.mdeny"));
 
   if(v.NoNewPrivileges && String(v.AmbientCapabilities||"").trim())
-    note("AmbientCapabilities", "这两个不冲突：能力是启动时赋予的，<code>NoNewPrivileges</code> 只阻止之后再提权。");
+    note("AmbientCapabilities", t("v.nnp.ambient"));
 
   if(!v.DynamicUser && !String(v.User||"").trim())
-    warn("User", "没有指定运行身份，服务将以 root 运行。建议启用 <code>DynamicUser</code> 或指定专用用户。");
+    warn("User", t("v.user.root"));
 
   if(String(v.SyslogIdentifier||"").trim() === "" && String(v.name||"").trim())
-    note("SyslogIdentifier", "未设置时日志标识默认就是 <code>"+esc(String(v.name).trim())+"</code>。");
+    note("SyslogIdentifier", fmt("v.syslog", [esc(String(v.name).trim())]));
 
   return out;
 }
@@ -956,21 +1234,20 @@ function render(){
   var dot = el("status-dot"), txt = el("status-text");
   if(errs.length){
     dot.dataset.s = "err";
-    txt.textContent = errs.length + " 项错误需要修正";
+    txt.textContent = fmt("status.err", [errs.length]);
   } else if(warns.length){
     dot.dataset.s = "warn";
-    txt.textContent = "可以生成 · " + warns.length + " 条建议";
+    txt.textContent = fmt("status.warn", [warns.length]);
   } else {
     dot.dataset.s = "ok";
-    txt.textContent = "就绪 · 语法检查无异常";
+    txt.textContent = t("status.ok");
   }
 
   var order = {err:0, warn:1, note:2};
   issues.sort(function(a,b){ return order[a.l] - order[b.l]; });
   el("notes").innerHTML = issues.map(function(i){
-    return '<div class="note" data-l="'+i.l+'"><span class="tag">'+
-      (i.l === "err" ? "错误" : i.l === "warn" ? "建议" : "说明") +
-      '</span><span><b>'+esc(i.k)+'</b> · '+i.msg+'</span></div>';
+    return '<div class="note" data-l="'+i.l+'"><span class="tag">'+t("tag."+i.l)+
+      '</span><span><b>'+esc(labelOf(i.k))+'</b> · '+i.msg+'</span></div>';
   }).join("");
   el("notes").hidden = issues.length === 0;
 
@@ -991,8 +1268,7 @@ function updateCounts(v){
   });
 }
 
-/* ============ 草稿：只存在本机浏览器 ============ */
-var DRAFT_KEY = "sdtool.draft.v1";
+/* ============ 偏好与草稿：只存在本机浏览器 ============ */
 var saveTimer = null;
 function saveDraft(v){
   if(saveTimer) clearTimeout(saveTimer);
@@ -1008,6 +1284,34 @@ function loadDraft(){
     return (obj && typeof obj === "object") ? obj : null;
   }catch(e){ return null; }
 }
+function readPref(key){
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+function writePref(key, val){
+  try{ localStorage.setItem(key, val); }catch(e){}
+}
+
+/* ============ 语言 ============ */
+function detectLang(){
+  var saved = readPref(LANG_KEY);
+  if(saved === "zh" || saved === "en") return saved;
+  return /^zh/i.test(navigator.language || "") ? "zh" : "en";
+}
+function applyLang(next){
+  if(next === lang) return;
+  var v = readState();          /* 先取出当前填写内容 */
+  lang = next;
+  writePref(LANG_KEY, lang);
+  buildChrome();
+  buildForm();                  /* 重建表单会清空控件 */
+  writeState(v, true);          /* 再把内容填回去 */
+  render();
+}
+function updateLangButtons(){
+  Array.prototype.forEach.call(el("seg-lang").children, function(b){
+    b.setAttribute("aria-pressed", b.dataset.langSet === lang ? "true" : "false");
+  });
+}
 
 /* ============ 复制 ============ */
 function flash(btn, label){
@@ -1018,7 +1322,7 @@ function flash(btn, label){
   setTimeout(function(){ node.textContent = old; btn.disabled = false; }, 1400);
 }
 function copyText(text, btn){
-  var done = function(){ flash(btn, "已复制"); };
+  var done = function(){ flash(btn, t("copy.done")); };
   var fallback = function(){
     try{
       var ta = document.createElement("textarea");
@@ -1032,7 +1336,7 @@ function copyText(text, btn){
       document.body.removeChild(ta);
       if(ok){ done(); return; }
     }catch(e){}
-    flash(btn, "请手动复制");
+    flash(btn, t("copy.manual"));
   };
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(done, fallback);
@@ -1049,14 +1353,14 @@ function switchTab(which){
   el("tab-install").setAttribute("aria-selected", isUnit ? "false" : "true");
   el("pane-unit").hidden = !isUnit;
   el("pane-install").hidden = isUnit;
-  el("copy-label").textContent = "复制";
+  el("copy-label").textContent = t("copy.idle");
 }
 
 function setSheet(open){
   var out = el("output");
   out.dataset.open = open ? "true" : "false";
   el("btn-sheet").setAttribute("aria-expanded", open ? "true" : "false");
-  el("sheet-label").textContent = open ? "收起" : "展开";
+  el("sheet-label").textContent = open ? t("sheet.hide") : t("sheet.show");
   el("backdrop").hidden = !open;
   if(open && window.innerWidth <= 940) out.scrollTop = 0;
 }
@@ -1083,6 +1387,11 @@ function bind(){
     writeState(DEFAULTS);
   });
 
+  el("seg-lang").addEventListener("click", function(ev){
+    var btn = ev.target.closest("[data-lang-set]");
+    if(btn){ applyLang(btn.dataset.langSet); updateLangButtons(); }
+  });
+
   el("tab-unit").addEventListener("click", function(){ switchTab("unit"); });
   el("tab-install").addEventListener("click", function(){ switchTab("install"); });
 
@@ -1100,6 +1409,9 @@ function bind(){
 }
 
 /* ============ 启动 ============ */
+lang = detectLang();
+buildChrome();
+updateLangButtons();
 buildForm();
 bind();
 var draft = loadDraft();
