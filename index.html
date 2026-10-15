@@ -352,7 +352,7 @@ select{appearance:none;padding-right:30px;cursor:pointer}
 
 /* ---------- 手机:输出收成底部抽屉 ---------- */
 @media (max-width:940px){
-  body{padding-block-end:88px}
+  body{padding-block-end:76px}
   .output{
     position:fixed;left:0;right:0;bottom:0;top:auto;z-index:40;
     border-radius:14px 14px 0 0;border-bottom:none;border-left:none;border-right:none;
@@ -365,7 +365,8 @@ select{appearance:none;padding-right:30px;cursor:pointer}
   }
   .out-head{border-radius:14px 14px 0 0}
   .output[data-open="false"] .code-wrap,
-  .output[data-open="false"] .notes{display:none}
+  .output[data-open="false"] .notes,
+  .output[data-open="false"] .tabs{display:none}
   .sheet-toggle{display:inline-flex}
   .out-head .tabs{order:3;width:100%}
 }
