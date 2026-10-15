@@ -307,7 +307,7 @@ select{appearance:none;padding-right:30px;cursor:pointer}
 .code-wrap{background:var(--code-bg);overflow:auto;flex:1;min-height:0}
 .code{
   margin:0;padding:14px 16px 18px;
-  font-family:var(--font-mono);font-size:12.5px;line-height:1.5;
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.68;
   color:var(--code-fg);counter-reset:ln;
   tab-size:2;
 }
@@ -354,9 +354,12 @@ select{appearance:none;padding-right:30px;cursor:pointer}
 @media (max-width:940px){
   body{padding-block-end:88px}
   .output{
-    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    position:fixed;left:0;right:0;bottom:0;top:auto;z-index:40;
     border-radius:14px 14px 0 0;border-bottom:none;border-left:none;border-right:none;
     max-height:88dvh;
+    /* 桌面的 top:18px 若不重置,会与 bottom:0 一起把元素拉高到整个视口,
+       收起时只剩一层不透明的壳盖住下面的表单 */
+    height:auto;
     padding-bottom:env(safe-area-inset-bottom,0px);
     box-shadow:0 -10px 34px -12px rgba(8,12,16,.42);
   }
@@ -526,7 +529,13 @@ var STR = {
     "v.mdeny":"会杀掉需要 JIT 的运行时（Node.js、JVM、.NET），确认服务不依赖它们。",
     "v.nnp.ambient":"这两个不冲突：能力是启动时赋予的，<code>NoNewPrivileges</code> 只阻止之后再提权。",
     "v.user.root":"没有指定运行身份，服务将以 root 运行。建议启用 <code>DynamicUser</code> 或指定专用用户。",
-    "v.syslog":"未设置时日志标识默认就是 <code>{0}</code>。"
+    "v.syslog":"未设置时日志标识默认就是 <code>{0}</code>。",
+    "v.dev.format":"这行不是「设备 权限」格式：<code>{0}</code>",
+    "v.dev.path":"设备 <code>{0}</code> 既不以 <code>/dev/</code> 开头，也不是 <code>char-</code> 或 <code>block-</code> 组名。",
+    "v.dev.perm":"权限只能是 <code>r</code>、<code>w</code>、<code>m</code> 的组合，当前是 <code>{0}</code>。",
+    "v.dev.policy":"DevicePolicy 是 <code>auto</code>（或未设置）时，<code>DeviceAllow=</code> 不会生效。改成 <code>strict</code> 或 <code>closed</code>。",
+    "v.dev.badpolicy":"DevicePolicy 只能是 <code>auto</code>、<code>closed</code> 或 <code>strict</code>。",
+    "v.protectproc.root":"<code>ProtectProc</code> 对 root 无效，需要配合 <code>User=</code> 或 <code>DynamicUser=yes</code>，且不能带 <code>CAP_SYS_PTRACE</code>。"
   },
   en:{
     "app.title":"systemd Service Generator",
@@ -585,7 +594,13 @@ var STR = {
     "v.mdeny":"This kills JIT runtimes (Node.js, the JVM, .NET); make sure the service does not need one.",
     "v.nnp.ambient":"These do not conflict: capabilities are granted at start, and <code>NoNewPrivileges</code> only blocks gaining more afterwards.",
     "v.user.root":"No identity set, so the service runs as root. Enable <code>DynamicUser</code> or name a dedicated user.",
-    "v.syslog":"Left empty, the log identifier defaults to <code>{0}</code>."
+    "v.syslog":"Left empty, the log identifier defaults to <code>{0}</code>.",
+    "v.dev.format":"Not a “device permissions” pair: <code>{0}</code>",
+    "v.dev.path":"Device <code>{0}</code> neither starts with <code>/dev/</code> nor names a <code>char-</code> or <code>block-</code> group.",
+    "v.dev.perm":"Permissions may only combine <code>r</code>, <code>w</code> and <code>m</code>; this is <code>{0}</code>.",
+    "v.dev.policy":"With DevicePolicy at <code>auto</code> (or unset), <code>DeviceAllow=</code> has no effect. Use <code>strict</code> or <code>closed</code>.",
+    "v.dev.badpolicy":"DevicePolicy must be <code>auto</code>, <code>closed</code> or <code>strict</code>.",
+    "v.protectproc.root":"<code>ProtectProc</code> does nothing for root; pair it with <code>User=</code> or <code>DynamicUser=yes</code>, and drop <code>CAP_SYS_PTRACE</code>."
   }
 };
 
@@ -773,6 +788,15 @@ var SCHEMA = [
        hint:{zh:"禁止修改系统时钟", en:"Blocks changing the system clock."}},
       {k:"ProtectHostname", type:"check",
        hint:{zh:"禁止修改主机名和域名", en:"Blocks changing the hostname and domain name."}},
+      {k:"ProtectProc", type:"select", def:"", opts:["","noaccess","invisible","ptraceable","default"],
+       hint:{zh:'用 hidepid= 限制服务能看到哪些 <code>/proc/PID</code>。<code>invisible</code> 隐藏别人的进程，多数服务的推荐值。root 不受影响，必须配合 <code>User=</code> 或 <code>DynamicUser</code> 才生效，且不能带 <code>CAP_SYS_PTRACE</code>',
+             en:'Restricts which <code>/proc/PID</code> entries the service sees via hidepid=. <code>invisible</code> hides other users’ processes and suits most services. root is unaffected, so it needs <code>User=</code> or <code>DynamicUser</code>, and it does not work with <code>CAP_SYS_PTRACE</code>.'}},
+      {k:"DevicePolicy", type:"select", def:"", opts:["","auto","closed","strict"],
+       hint:{zh:'<code>auto</code> 是默认值：没写 DeviceAllow 时放行全部设备。<code>closed</code> 额外放行 /dev/null 等伪设备，<code>strict</code> 只放行 DeviceAllow 列出的',
+             en:'<code>auto</code> is the default and allows all devices unless DeviceAllow is set. <code>closed</code> also allows pseudo devices like /dev/null; <code>strict</code> allows only what DeviceAllow lists.'}},
+      {k:"DeviceAllow", type:"textarea", wide:true, ph:"/dev/ttyUSB0 rw\nchar-tty rw",
+       hint:{zh:'每行一个「设备 权限」，设备可写 <code>/dev/xxx</code> 路径或 <code>char-组名</code>／<code>block-组名</code>，权限由 <code>r</code>、<code>w</code>、<code>m</code>（允许 mknod）组成。一条指令只接一个设备，所以每行生成一条 <code>DeviceAllow=</code>。仅当 DevicePolicy 为 <code>strict</code> 或 <code>closed</code> 时才起作用',
+             en:'One “device permissions” pair per line. The device is a <code>/dev/…</code> path or <code>char-group</code> / <code>block-group</code>; permissions combine <code>r</code>, <code>w</code> and <code>m</code> (allow mknod). Each directive takes one device, so every line becomes its own <code>DeviceAllow=</code>. Only effective when DevicePolicy is <code>strict</code> or <code>closed</code>.'}},
       {k:"RestrictAddressFamilies", type:"text", ph:"AF_INET AF_INET6 AF_UNIX",
        hint:{zh:"只允许列出的 socket 地址族", en:"Allows only the listed socket address families."}},
       {k:"RestrictNamespaces", type:"check",
@@ -873,7 +897,8 @@ var DEFAULTS = {
   NoNewPrivileges:false, PrivateTmp:false, PrivateDevices:false,
   ProtectSystem:"", ProtectHome:"", ProtectKernelTunables:false,
   ProtectKernelModules:false, ProtectKernelLogs:false, ProtectControlGroups:false,
-  ProtectClock:false, ProtectHostname:false, RestrictAddressFamilies:"",
+  ProtectClock:false, ProtectHostname:false, ProtectProc:"",
+  DevicePolicy:"", DeviceAllow:"", RestrictAddressFamilies:"",
   RestrictNamespaces:false, LockPersonality:false, MemoryDenyWriteExecute:false,
   RestrictRealtime:false, RestrictSUIDSGID:false, RemoveIPC:false,
   SystemCallFilter:"", SystemCallArchitectures:"",
@@ -889,6 +914,7 @@ var HARDEN_PRESET = {
   ProtectSystem:"strict", ProtectHome:"read-only",
   ProtectKernelTunables:true, ProtectKernelModules:true, ProtectKernelLogs:true,
   ProtectControlGroups:true, ProtectClock:true, ProtectHostname:true,
+  ProtectProc:"invisible",
   RestrictAddressFamilies:"AF_INET AF_INET6 AF_UNIX",
   RestrictNamespaces:true, LockPersonality:true, RestrictRealtime:true,
   RestrictSUIDSGID:true, RemoveIPC:true,
@@ -1109,7 +1135,8 @@ function buildLines(v){
 
   ["NoNewPrivileges","PrivateTmp","PrivateDevices","ProtectSystem","ProtectHome",
    "ProtectKernelTunables","ProtectKernelModules","ProtectKernelLogs","ProtectControlGroups",
-   "ProtectClock","ProtectHostname","RestrictAddressFamilies","RestrictNamespaces",
+   "ProtectClock","ProtectHostname","ProtectProc","DevicePolicy",
+   "RestrictAddressFamilies","RestrictNamespaces",
    "LockPersonality","MemoryDenyWriteExecute","RestrictRealtime","RestrictSUIDSGID","RemoveIPC",
    "SystemCallFilter","SystemCallArchitectures","CapabilityBoundingSet","AmbientCapabilities",
    "ReadWritePaths","ReadOnlyPaths","InaccessiblePaths",
@@ -1121,6 +1148,9 @@ function buildLines(v){
     if(f.type === "check"){ if(v[k]) d(k, "yes"); }
     else set(k);
   });
+
+  /* DeviceAllow 一条指令只接一个设备,每行生成一条 */
+  parsePaths(v.DeviceAllow).forEach(function(line){ d("DeviceAllow", line); });
 
   b();
   s("[Install]");
@@ -1271,6 +1301,29 @@ function validate(v){
 
   if(String(v.SyslogIdentifier||"").trim() === "" && String(v.name||"").trim())
     note("SyslogIdentifier", fmt("v.syslog", [esc(String(v.name).trim())]));
+
+  /* DeviceAllow 每行形如 "设备 rwm",设备是 /dev/... 或 char-组名 / block-组名 */
+  var devLines = parsePaths(v.DeviceAllow);
+  devLines.forEach(function(line){
+    var m = /^(\S+)\s+([rwm]+)$/.exec(line);
+    if(!m){
+      err("DeviceAllow", fmt("v.dev.format", [esc(line)]));
+      return;
+    }
+    var dev = m[1];
+    if(!/^\/dev\//.test(dev) && !/^(char|block)-/.test(dev))
+      err("DeviceAllow", fmt("v.dev.path", [esc(dev)]));
+    if(/[^rwm]/.test(m[2]))
+      err("DeviceAllow", fmt("v.dev.perm", [esc(m[2])]));
+  });
+  if(devLines.length && (v.DevicePolicy === "" || v.DevicePolicy === "auto"))
+    warn("DeviceAllow", t("v.dev.policy"));
+  if(v.DevicePolicy !== "" && v.DevicePolicy !== "auto" && v.DevicePolicy !== "closed"
+     && v.DevicePolicy !== "strict")
+    err("DevicePolicy", t("v.dev.badpolicy"));
+
+  if(v.ProtectProc && v.ProtectProc !== "default" && !v.DynamicUser && !String(v.User||"").trim())
+    warn("ProtectProc", t("v.protectproc.root"));
 
   return out;
 }
