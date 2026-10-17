@@ -1,16 +1,114 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>systemd 服务文件生成器</title>
-<meta name="description" content="在浏览器里生成 systemd unit 文件：按 [Unit] / [Service] / [Install] 分段填写，实时输出，支持 DynamicUser、Environment、StateDirectory，附带语法检查与部署命令，中英双语、深色浅色主题。">
+<title>systemd Service Generator — Build Unit Files Online</title>
+<meta name="description" content="Free online systemd service generator. Fill in [Unit], [Service] and [Install] fields and get a ready unit file with live syntax checks, hardening presets, DynamicUser, Environment and StateDirectory support, plus the install commands. No sign-up, works offline in your browser. 中文界面可用。">
+<meta name="keywords" content="systemd, systemd service generator, unit file generator, .service file, systemctl, DynamicUser, StateDirectory, Linux, systemd-analyze">
+<meta name="author" content="emptyteeth">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://emptyteeth.github.io/sdtool/">
+
 <meta property="og:type" content="website">
-<meta property="og:title" content="systemd 服务文件生成器">
-<meta property="og:description" content="在浏览器里生成 systemd unit 文件，实时预览、语法检查、部署命令，中英双语与深色模式。">
+<meta property="og:site_name" content="systemd Service Generator">
+<meta property="og:url" content="https://emptyteeth.github.io/sdtool/">
+<meta property="og:title" content="systemd Service Generator — Build Unit Files Online">
+<meta property="og:description" content="Free online systemd service generator with live syntax checks, hardening presets and install commands. Supports DynamicUser, Environment and StateDirectory.">
+<meta property="og:image" content="https://emptyteeth.github.io/sdtool/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A systemd unit file being generated next to the form that builds it">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="systemd Service Generator — Build Unit Files Online">
+<meta name="twitter:description" content="Free online systemd service generator with live syntax checks, hardening presets and install commands.">
+<meta name="twitter:image" content="https://emptyteeth.github.io/sdtool/assets/og-image.png">
+<meta name="twitter:image:alt" content="A systemd unit file being generated next to the form that builds it">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://emptyteeth.github.io/sdtool/#website",
+      "url": "https://emptyteeth.github.io/sdtool/",
+      "name": "systemd Service Generator",
+      "inLanguage": ["en", "zh-CN"]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://emptyteeth.github.io/sdtool/#app",
+      "name": "systemd Service Generator",
+      "url": "https://emptyteeth.github.io/sdtool/",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "System administration",
+      "operatingSystem": "Any (runs in a web browser)",
+      "browserRequirements": "Requires JavaScript",
+      "description": "A free browser-based generator for systemd unit files. Fill in the [Unit], [Service] and [Install] sections and get a ready .service file with live syntax checks, hardening presets and the commands to install it.",
+      "featureList": [
+        "Generate systemd .service unit files",
+        "Live syntax checks for common mistakes",
+        "DynamicUser, Environment and StateDirectory support",
+        "Sandbox hardening presets",
+        "Install and verify commands",
+        "English and Chinese interface",
+        "Dark and light themes"
+      ],
+      "isAccessibleForFree": true,
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+      "license": "https://opensource.org/licenses/MIT",
+      "codeRepository": "https://github.com/emptyteeth/sdtool",
+      "author": {"@type": "Person", "name": "emptyteeth", "url": "https://github.com/emptyteeth"}
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://emptyteeth.github.io/sdtool/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where do I put the generated systemd service file?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Save it as /etc/systemd/system/<name>.service, then run sudo systemctl daemon-reload followed by sudo systemctl enable --now <name>.service. The Install commands tab on the page produces the exact commands."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does DynamicUser=yes do?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "systemd allocates a temporary UID and GID when the service starts and reclaims them when it stops, so you do not have to create a system user. It is mutually exclusive with User=."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the generator replace systemd-analyze verify?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The in-page checks are heuristic and catch common mistakes, but you should still run sudo systemd-analyze verify on the generated file before deploying it."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my data uploaded anywhere?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Everything runs in the browser and your form values are only stored in localStorage on your own machine."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e6f78'/%3E%3Cpath d='M9 10.5l5.5 5.5L9 21.5' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M17.5 21.5H24' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -379,6 +477,28 @@ footer{
 }
 footer code{font-family:var(--font-mono);font-size:12px;color:var(--fg-2)}
 
+/* 给搜索爬虫与未启用脚本的访问者也可见的说明文字。
+   放在表单与输出面板之后,避免被脚本重绘覆盖。 */
+.seo-intro{
+  max-width:1500px;margin:40px auto 0;padding-top:24px;
+  border-top:1px solid var(--border);color:var(--fg-2);
+  font-size:14px;line-height:1.7;
+}
+.seo-intro h2{
+  font-size:18px;font-weight:600;color:var(--fg);margin-bottom:12px;
+}
+.seo-intro h3{
+  font-size:14.5px;font-weight:600;color:var(--fg);margin:20px 0 8px;
+}
+.seo-intro p{max-width:78ch;margin:0 0 12px}
+.seo-intro ol{margin:0 0 14px;padding-left:1.4em;max-width:78ch}
+.seo-intro li{margin-bottom:6px}
+.seo-intro code{
+  font-family:var(--font-mono);font-size:12.5px;color:var(--fg);
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;
+}
+
 @media (prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
 }
@@ -462,6 +582,39 @@ try{
   <span id="i18n-foot1">生成的文件放到 <code>/etc/systemd/system/</code>，改完记得 <code>systemctl daemon-reload</code>。</span>
   <span id="i18n-foot2">填写内容只保存在这台浏览器本地。</span>
 </footer>
+
+<section class="seo-intro" aria-labelledby="about-heading">
+  <h2 id="about-heading">About this systemd service file generator</h2>
+  <p>
+    This tool builds a systemd <code>&lt;name&gt;.service</code> unit file from a form, so you
+    do not have to remember the exact spelling and allowed values of every directive.
+    Fill in the <code>[Unit]</code>, <code>[Service]</code> and <code>[Install]</code>
+    sections and the file is generated as you type, alongside checks for the mistakes that
+    most often stop a unit from starting.
+  </p>
+  <p>
+    It covers the directives people actually reach for: <code>Type</code>, the
+    <code>ExecStart</code> family, restart and timeout behaviour, dependency ordering, and a
+    set of sandbox hardening switches such as <code>ProtectSystem</code>,
+    <code>NoNewPrivileges</code> and <code>SystemCallFilter</code>. Three options get extra
+    attention because they are easy to get wrong: <code>DynamicUser=yes</code> allocates a
+    temporary UID instead of requiring a system user, <code>Environment</code> lines are
+    quoted and escaped for you, and <code>StateDirectory</code> and its siblings are checked
+    to be directory names rather than paths.
+  </p>
+  <h3>How to use it</h3>
+  <ol>
+    <li>Fill in the form. The unit file updates on the right as you type.</li>
+    <li>Read the notes under the output. Errors block a working unit; warnings point at settings that usually surprise people.</li>
+    <li>Copy the file to <code>/etc/systemd/system/&lt;name&gt;.service</code> and run <code>sudo systemctl daemon-reload</code>.</li>
+    <li>Verify it with <code>sudo systemd-analyze verify &lt;name&gt;.service</code>, then <code>sudo systemctl enable --now &lt;name&gt;.service</code>. The <em>Install commands</em> tab produces this sequence for you.</li>
+  </ol>
+  <p>
+    Everything runs in your browser. There is no account and no backend, and the values you
+    enter are only kept in <code>localStorage</code> on your own machine. The interface is
+    available in English and Chinese.
+  </p>
+</section>
 
 <div id="backdrop" hidden></div>
 
@@ -1009,7 +1162,9 @@ function buildForm(){
 /* ============ 界面文字 ============ */
 function buildChrome(){
   document.documentElement.lang = (lang === "zh") ? "zh-CN" : "en";
-  document.title = t("app.title");
+  document.title = (lang === "zh")
+    ? "systemd 服务文件生成器 — 在线生成 unit 文件"
+    : "systemd Service Generator — Build Unit Files Online";
   el("i18n-title").textContent = t("app.title");
   el("i18n-sub").innerHTML = t("app.sub");
   el("i18n-foot1").innerHTML = t("foot.1");
