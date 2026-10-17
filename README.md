@@ -1,72 +1,77 @@
-# systemd 服务文件生成器
+# systemd Service Generator
 
-在浏览器里填写表单，实时生成 systemd unit 文件，附带语法检查和部署命令。
+A browser-based generator for systemd unit files. Fill in a form, watch the unit file build as you type, and get syntax checks and install commands alongside it.
 
-**在线使用：** https://emptyteeth.github.io/sdtool/
+**Live:** https://emptyteeth.github.io/sdtool/
 
-单文件、无构建、无后端。所有计算都在浏览器里完成，填写的内容只存在本机 `localStorage`，不会上传到任何地方。
+Single file, no build step, no backend. Everything runs in your browser, and what you type stays in `localStorage` — nothing is uploaded anywhere.
 
-## 功能
+## Features
 
-**生成**
-- 按 `[Unit]` / `[Service]` / `[Install]` 三段分组，约 90 个常用指令
-- 依赖与启动顺序：`After` / `Wants` / `Requires` / `Before` / `PartOf` / `Conflicts`，以及 `StartLimitIntervalSec` + `StartLimitBurst` 熔断阈值
-- 进程：`Type`（simple / exec / forking / oneshot / notify / dbus / idle）、`ExecStart` 全系列（Pre / Post / Stop / StopPost / Reload）
-- 重启与超时：`Restart` 策略、`RestartSec`、`TimeoutStopSec`、`WatchdogSec`、`RemainAfterExit`
-- 加固：`NoNewPrivileges`、`ProtectSystem` / `ProtectHome`、`SystemCallFilter`、`CapabilityBoundingSet` 等，带一键「套用推荐加固」
-- 资源限制：`MemoryMax`、`CPUQuota`、`LimitNOFILE`、`Nice`、`UMask` 等
+**Generation**
+- Grouped by the three unit sections, `[Unit]` / `[Service]` / `[Install]`, covering roughly 90 common directives
+- Dependencies and ordering: `After` / `Wants` / `Requires` / `Before` / `PartOf` / `Conflicts`, plus `StartLimitIntervalSec` + `StartLimitBurst` for crash-loop rate limiting
+- Process: `Type` (simple / exec / forking / oneshot / notify / dbus / idle) and the full `ExecStart` family (Pre / Post / Stop / StopPost / Reload)
+- Restart and timeouts: `Restart` policy, `RestartSec`, `TimeoutStopSec`, `WatchdogSec`, `RemainAfterExit`
+- Hardening: `NoNewPrivileges`, `ProtectSystem` / `ProtectHome`, `ProtectProc`, `DevicePolicy`, `DeviceAllow`, `SystemCallFilter`, `CapabilityBoundingSet` and more, with one-click "Apply recommended hardening"
+- Resource limits: `MemoryMax`, `CPUQuota`, `LimitNOFILE`, `Nice`, `UMask` and others
 
-**三个重点指令**
-- `DynamicUser` —— 勾选后输出 `DynamicUser=yes`。与 `User=` 冲突时会提示，并把被忽略的 `User=` 从输出里去掉，避免踩坑
-- `Environment` —— 多行 `KEY=VALUE` 输入，逐行生成 `Environment=`；含空格的值自动加引号转义；`#` 开头的行保留为注释；格式错误的行会报错
-- `StateDirectory` —— 连同 `CacheDirectory`、`LogsDirectory`、`ConfigurationDirectory`、`RuntimeDirectory` 一起提供。只接受目录名，填绝对路径或含非法字符会报错，且不写进输出
+**Three directives worth calling out**
+- `DynamicUser` — emits `DynamicUser=yes`. If it conflicts with `User=`, you get a warning and the ignored `User=` is dropped from the output instead of silently producing a broken unit
+- `Environment` — a multi-line `KEY=VALUE` box that emits one `Environment=` per line. Values containing spaces are quoted and escaped automatically, `#` lines stay comments, and malformed lines are reported
+- `StateDirectory` — provided together with `CacheDirectory`, `LogsDirectory`, `ConfigurationDirectory` and `RuntimeDirectory`. These take a directory name only; an absolute path or illegal characters raise an error and are left out of the output
 
-**检查与辅助**
-- 实时语法检查，错误 / 建议 / 说明三级，例如：
-  - `ExecStart` 不是绝对路径
-  - `Restart` 配了但没设 `RestartSec`（默认只有 100ms，崩溃循环会刷满日志）
-  - `ProtectSystem=strict` 却没配 `ReadWritePaths`
-  - `WatchdogSec` 配在非 `notify` 类型上
-  - `MemoryDenyWriteExecute` 会杀掉需要 JIT 的运行时
-- 「部署命令」标签页：写文件、`systemd-analyze verify`、`daemon-reload`、`enable --now`、`journalctl -f` 的完整命令序列
-- 中英双语（右上角切换，首次访问按浏览器语言判断）
-- 深色 / 浅色 / 跟随系统三态主题
-- 桌面双栏，手机上输出区收成底部抽屉
+**Checks and helpers**
+- Live syntax checks in three severities (error / warning / note), for example:
+  - `ExecStart` is not an absolute path
+  - `Restart` is set without `RestartSec` (the default is only 100ms, so a crash loop floods the journal)
+  - `ProtectSystem=strict` without `ReadWritePaths`
+  - `WatchdogSec` on a unit that is not `Type=notify`
+  - `MemoryDenyWriteExecute` will kill JIT runtimes
+  - `DeviceAllow` has no effect unless `DevicePolicy` is `strict` or `closed`
+- An "Install commands" tab with the full sequence: write the file, `systemd-analyze verify`, `daemon-reload`, `enable --now`, `journalctl -f`
+- English and Chinese interface, switchable in the header; the first visit picks a language from the browser
+- Dark / light / follow-system themes
+- Two-column desktop layout; on phones the output collapses into a bottom drawer
 
-## 本地使用
+## Using it locally
 
-直接用浏览器打开 `index.html` 即可，不需要安装任何东西。
+Open `index.html` in a browser. Nothing to install.
 
-想跑本地服务器（可选）：
+To serve it over HTTP instead (optional):
 
 ```sh
 python3 -m http.server 8000
-# 然后访问 http://localhost:8000
+# then visit http://localhost:8000
 ```
 
-## 项目结构
+## Project structure
 
 ```
-index.html                       整个应用,HTML + CSS + JS 都在里面
-.github/workflows/pages.yml      GitHub Pages 部署
+index.html                       the whole app: HTML, CSS and JS in one file
+.github/workflows/pages.yml      GitHub Pages deployment
 ```
 
-代码里几处关键结构：
+A few key structures in the code:
 
-- `SCHEMA` —— 字段定义。每个分组对应 unit 文件的一段，字段的就近文案写成 `{zh, en}` 对
-- `STR` —— 界面文字、校验消息、生成文件注释的文案表，按 key 取用，`{0}` 占位符插值
-- `buildLines()` —— 由表单值生成 unit 文件的指令序列
-- `validate()` —— 语法检查规则
-- `render()` —— 每次输入后重跑以上全部并更新界面
+- `SCHEMA` — field definitions. Each group maps to one unit file section, and each field's copy is written as a `{zh, en}` pair
+- `STR` — UI strings, check messages and generated-file comments, looked up by key with `{0}` placeholders
+- `buildLines()` — turns form values into the sequence of unit file directives
+- `validate()` — the syntax check rules
+- `render()` — reruns all of the above after every input and updates the UI
 
-## 部署
+## Deployment
 
-仓库已配置 GitHub Actions 发布 Pages。推送到 `main` 后工作流会自动把 `index.html` 作为站点根发布，也可以在 Actions 页面手动触发。
+The repo is set up to publish with GitHub Actions. Pushing to `main` publishes `index.html` as the site root automatically, and the workflow can also be triggered from the Actions tab.
 
-首次部署需要在仓库 **Settings → Pages → Build and deployment → Source** 中选择 **GitHub Actions**。
+On a fresh fork, set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**.
 
-## 已知限制
+## Known limitations
 
-- 语法检查是启发式的，覆盖常见坑，但不等于 `systemd-analyze verify`。真正部署前请按生成页面里给出的命令跑一次 `systemd-analyze verify`
-- 未做「导入现有 unit 文件」的反向解析
-- 指令集覆盖常用项，不是 systemd 全部指令
+- The checks are heuristic and cover common mistakes, but they are not `systemd-analyze verify`. Run that command before deploying for real; the generated install commands include it
+- There is no reverse parser for importing an existing unit file
+- The directive set covers common options, not all of systemd
+
+## License
+
+MIT
