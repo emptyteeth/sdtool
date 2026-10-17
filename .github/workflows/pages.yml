@@ -23,6 +23,8 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html _site/index.html
+          # 静态资源(og:image 等)需要一并发布
+          [ -d assets ] && cp -r assets _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
